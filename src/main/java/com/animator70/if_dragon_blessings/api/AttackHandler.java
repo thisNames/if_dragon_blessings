@@ -47,12 +47,20 @@ public class AttackHandler {
 
         // 【火龙】点燃 5 秒 + 烈焰标记 5 秒 + 击退（等级越高持续越久、击退越强）
         if (attacker.hasEffect(ModMobEffects.FIRE_ATTACK.get())) {
-            double fireMultiplier = AttackMultipliers.of(attacker.getEffect(ModMobEffects.FIRE_ATTACK.get()),
+            MobEffectInstance fireEffect = attacker.getEffect(ModMobEffects.FIRE_ATTACK.get());
+
+            double fireMultiplier = AttackMultipliers.of(
+                    fireEffect,
                     DragonBlessingsConfig.FIRE_ATTACK_MAX_LEVEL.get());
 
+            // 烈焰标记的等级镜像火龙之力的等级（例：3 级火龙之力 → 3 级烈焰）
+            int blazeAmplifier = fireEffect != null ? fireEffect.getAmplifier() : 0;
+
             target.setSecondsOnFire((int) Math.round(5 * fireMultiplier));
-            target.addEffect(new MobEffectInstance(ModMobEffects.BLAZE.get(),
-                    (int) Math.round(100 * fireMultiplier), 0));
+
+            target.addEffect(new MobEffectInstance(
+                    ModMobEffects.BLAZE.get(),
+                    (int) Math.round(100 * fireMultiplier), blazeAmplifier));
 
             knockback(target, attacker, (float) fireMultiplier);
         }
@@ -60,13 +68,18 @@ public class AttackHandler {
         // 【冰龙】冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒，等级越高持续越久）
         // 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
         if (attacker.hasEffect(ModMobEffects.ICE_ATTACK.get())) {
+            MobEffectInstance iceEffect = attacker.getEffect(ModMobEffects.ICE_ATTACK.get());
+
             double iceMultiplier = AttackMultipliers.of(
-                    attacker.getEffect(ModMobEffects.ICE_ATTACK.get()),
+                    iceEffect,
                     DragonBlessingsConfig.ICE_ATTACK_MAX_LEVEL.get());
+
+            // 冰封标记的等级镜像冰龙之力的等级（缓慢/挖掘疲劳保持固定 III）
+            int frozenAmplifier = iceEffect != null ? iceEffect.getAmplifier() : 0;
 
             int duration = (int) Math.round(200 * iceMultiplier);
 
-            target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, 0));
+            target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, frozenAmplifier));
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
             target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
         }

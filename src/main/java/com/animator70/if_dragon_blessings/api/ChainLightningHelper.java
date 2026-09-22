@@ -45,7 +45,7 @@ public class ChainLightningHelper {
      * @param level     当前世界
      * @param target    被击中的目标（闪电链的中心）
      * @param attacker  攻击者（拥有电龙之力效果的实体）
-     * @param amplifier 攻击者电龙之力 buff 的等级，用于增强伤害
+     * @param amplifier 攻击者电龙之力 buff 的等级，用于增强伤害并镜像为感电的等级
      */
     public static void createChainLightning(Level level, LivingEntity target, LivingEntity attacker, int amplifier) {
         // 目标已死或无敌则直接返回
@@ -79,7 +79,7 @@ public class ChainLightningHelper {
         chain.add(target);
         visited.add(target);
 
-        hurtWithLightning(level, target, centerDamage);
+        hurtWithLightning(level, target, centerDamage, amplifier);
 
         target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
 
@@ -101,7 +101,7 @@ public class ChainLightningHelper {
 
             // 伤害 = 基础伤害 * (1 - 递减比例 * 序号)，最低保留 10%
             float damage = chainDamageBase * Math.max(1.0F - i * chainDamageDecay, 0.1F);
-            hurtWithLightning(level, chained, damage);
+            hurtWithLightning(level, chained, damage, amplifier);
         }
 
         // 仅在服务端发送包（客户端由包处理器生成闪电链粒子）
@@ -218,11 +218,12 @@ public class ChainLightningHelper {
 
     /**
      * 用闪电（雷电）伤害源对实体造成伤害。
+     * 感电（shocked）的等级镜像攻击者电龙之力的等级（例：3 级电龙之力 → 3 级感电）。
      */
-    private static void hurtWithLightning(Level level, LivingEntity entity, float damage) {
+    private static void hurtWithLightning(Level level, LivingEntity entity, float damage, int amplifier) {
         entity.hurt(level.damageSources().lightningBolt(), damage);
 
         // 感电定身 3 秒（60 tick）：电龙攻击的核心效果，替代原模组的麻痹
-        entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, 0));
+        entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, amplifier));
     }
 }
