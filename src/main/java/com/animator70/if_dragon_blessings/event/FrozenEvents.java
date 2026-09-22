@@ -23,7 +23,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * 冰冻状态相关事件：
+ * 【冰龙】冰冻状态相关事件：
  * 1. 给所有 LivingEntity 附加冰冻 Capability
  * 2. 监听 FROZEN 效果的生命周期（添加/到期/移除），自动同步冰块渲染状态
  * 冰块只是装饰，用“效果添加时触发”即可，无需处理存档重载后的补发

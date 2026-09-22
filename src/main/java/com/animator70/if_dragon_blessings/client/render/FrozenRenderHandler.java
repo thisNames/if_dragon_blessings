@@ -23,7 +23,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * 冰块视觉：当生物处于“冰冻”状态（FrozenCapability）时，在其身上渲染一个半透明的冰块立方体。
+ * 【冰龙】冰块视觉：当生物处于“冰冻”状态（FrozenCapability）时，在其身上渲染一个半透明的冰块立方体。
  * 纯视觉、无碰撞箱、不阻挡玩家。
  * 冰冻状态由 FrozenCapability + SetFrozenPacket 同步，对远程实体可靠。
  */

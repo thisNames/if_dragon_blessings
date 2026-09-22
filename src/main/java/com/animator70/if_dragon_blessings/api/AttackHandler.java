@@ -24,7 +24,7 @@ import java.util.UUID;
 
 /**
  * 攻击方式与物品无关：只要攻击者持有对应的“攻击方式”buff
- * 命中目标时就触发对应的攻击特效
+ * 命中目标时就触发对应的攻击特效（火龙 / 冰龙 / 电龙 三种攻击方式）
  */
 @Mod.EventBusSubscriber(modid = IfDragonBlessings.MODID)
 public class AttackHandler {
@@ -45,7 +45,7 @@ public class AttackHandler {
 
         LivingEntity target = event.getEntity();
 
-        // 火龙：点燃 5 秒 + 烈焰标记 5 秒 + 击退
+        // 【火龙】点燃 5 秒 + 烈焰标记 5 秒 + 击退
         if (attacker.hasEffect(ModMobEffects.FIRE_ATTACK.get())) {
             target.setSecondsOnFire(5);
             target.addEffect(new MobEffectInstance(ModMobEffects.BLAZE.get(), 100, 0));
@@ -53,7 +53,7 @@ public class AttackHandler {
             knockback(target, attacker, 1.0F);
         }
 
-        // 冰龙：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒）
+        // 【冰龙】冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒）
         // 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
         if (attacker.hasEffect(ModMobEffects.ICE_ATTACK.get())) {
             target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), 200, 0));
@@ -61,7 +61,7 @@ public class AttackHandler {
             target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 200, 2));
         }
 
-        // 电龙：闪电链（带冷却，防止手速过快导致鬼畜）
+        // 【电龙】闪电链（带冷却，防止手速过快导致鬼畜）
         if (attacker.hasEffect(ModMobEffects.LIGHTNING_ATTACK.get())) {
             long now = attacker.level().getGameTime();
             long cooldown = DragonBlessingsConfig.CHAIN_COOLDOWN.get();

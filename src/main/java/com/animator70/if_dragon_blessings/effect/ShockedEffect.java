@@ -6,7 +6,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * 感电：电龙攻击施加的状态效果
+ * 【电龙】感电：电龙攻击施加的状态效果
  * 拥有感电效果的实体无法移动（定身）：每 tick 清零水平速度，保留向下速度（允许受重力下落）
  * 这是模组的核心效果，替代原模组依赖的 Lycanites 麻痹效果
  */

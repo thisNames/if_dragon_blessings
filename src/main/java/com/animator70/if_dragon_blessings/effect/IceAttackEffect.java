@@ -5,7 +5,7 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 
 /**
- * 冰龙的恩惠：作为攻击方式的标记 buff，本身不产生副作用
+ * 【冰龙】冰龙的恩惠：作为攻击方式的标记 buff，本身不产生副作用
  */
 public class IceAttackEffect extends MobEffect {
     public IceAttackEffect() {

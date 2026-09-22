@@ -5,7 +5,7 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 
 /**
- * 电龙的庇佑：作为攻击方式的标记 buff，本身不产生副作用
+ * 【电龙】电龙的庇佑：作为攻击方式的标记 buff，本身不产生副作用
  */
 public class LightningAttackEffect extends MobEffect {
     public LightningAttackEffect() {

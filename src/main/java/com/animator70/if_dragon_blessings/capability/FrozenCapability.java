@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * 冰冻状态：冰龙攻击施加的“剩余冰冻 tick”。
+ * 【冰龙】冰冻状态：冰龙攻击施加的“剩余冰冻 tick”。
  * 状态存 Capability，通过自定义网络包（SetFrozenPacket）同步到所有追踪者，
  * 不依赖 vanilla 的 MobEffect 同步（后者在 1.20.1 对远程实体同步不可靠）。
  *

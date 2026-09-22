@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 闪电链粒子包：在客户端播放闪电链粒子效果
+ * 【电龙】闪电链粒子包：在客户端播放闪电链粒子效果
  * ChainLightningPacket
  */
 public class ChainLightningPacket {

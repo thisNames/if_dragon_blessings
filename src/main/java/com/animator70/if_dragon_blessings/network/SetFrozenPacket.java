@@ -15,7 +15,7 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 /**
- * 冰冻状态同步包（服务端 → 客户端）
+ * 【冰龙】冰冻状态同步包（服务端 → 客户端）
  * 客户端收到后，把实体的冰冻 tick 写入其 Capability（供渲染层读取）。
  */
 public class SetFrozenPacket {

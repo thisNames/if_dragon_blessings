@@ -21,7 +21,7 @@ public class ModSounds {
             ForgeRegistries.SOUND_EVENTS,
             IfDragonBlessings.MODID);
 
-    // 雷电打击
+    // 【电龙】雷电打击音效
     @SuppressWarnings("removal")
     public static final RegistryObject<SoundEvent> LIGHTNING_STRIKE = SOUND_EVENTS.register(
             "lightning_strike",
