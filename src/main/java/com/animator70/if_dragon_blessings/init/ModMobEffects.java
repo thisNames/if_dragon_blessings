@@ -7,6 +7,7 @@ import com.animator70.if_dragon_blessings.effect.FireAttackEffect;
 import com.animator70.if_dragon_blessings.effect.FrozenEffect;
 import com.animator70.if_dragon_blessings.effect.IceAttackEffect;
 import com.animator70.if_dragon_blessings.effect.LightningAttackEffect;
+import com.animator70.if_dragon_blessings.effect.ShockedEffect;
 
 // Minecraft 类
 import net.minecraft.world.effect.MobEffect;
@@ -41,4 +42,7 @@ public class ModMobEffects {
 
     // 施加给目标的状态：烈焰（语义标记，实际点燃由原版 setSecondsOnFire 承担）
     public static final RegistryObject<MobEffect> BLAZE = MOB_EFFECTS.register("blaze", BlazeEffect::new);
+
+    // 施加给目标的状态：感电（定身，核心效果，替代原模组的麻痹）
+    public static final RegistryObject<MobEffect> SHOCKED = MOB_EFFECTS.register("shocked", ShockedEffect::new);
 }

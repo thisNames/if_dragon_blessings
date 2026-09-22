@@ -2,11 +2,13 @@ package com.animator70.if_dragon_blessings.api;
 
 // 我的类
 import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
+import com.animator70.if_dragon_blessings.init.ModMobEffects;
 import com.animator70.if_dragon_blessings.init.ModSounds;
 import com.animator70.if_dragon_blessings.network.ModNetwork;
 
 // Minecraft 类
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -198,5 +200,8 @@ public class ChainLightningHelper {
      */
     private static void hurtWithLightning(Level level, LivingEntity entity, float damage) {
         entity.hurt(level.damageSources().lightningBolt(), damage);
+
+        // 感电定身 3 秒（60 tick）：电龙攻击的核心效果，替代原模组的麻痹
+        entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, 0));
     }
 }
