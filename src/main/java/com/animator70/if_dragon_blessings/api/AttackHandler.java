@@ -13,6 +13,7 @@ import net.minecraft.world.entity.LivingEntity;
 
 // Forge 类
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -51,34 +52,47 @@ public class AttackHandler {
             knockback(target, attacker, 0.35F);
         }
 
-        // 冰龙：只施加原版缓慢效果，不定身、不击退
+        // 冰龙：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒）
+        // 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
         if (attacker.hasEffect(ModMobEffects.ICE_ATTACK.get())) {
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 2));
+            target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), 200, 0));
+            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 200, 2));
+            target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 200, 2));
         }
 
         // 电龙：闪电链（带冷却，防止手速过快导致鬼畜）
         if (attacker.hasEffect(ModMobEffects.LIGHTNING_ATTACK.get())) {
-            // 冷却检查：每个攻击者上次触发后，冷却时间内不再重复触发
             long now = attacker.level().getGameTime();
             long cooldown = DragonBlessingsConfig.CHAIN_COOLDOWN.get();
             Long lastTrigger = LAST_TRIGGER_TIME.get(attacker.getUUID());
 
-            if (lastTrigger != null && now - lastTrigger < cooldown) {
-                return;
+            // 冷却过了才触发（不 return，避免影响同一次攻击里的火/冰分支）
+            if (lastTrigger == null || now - lastTrigger >= cooldown) {
+                LAST_TRIGGER_TIME.put(attacker.getUUID(), now);
+
+                MobEffectInstance effect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
+                int amplifier = effect != null ? effect.getAmplifier() : 0;
+
+                ChainLightningHelper.createChainLightning(attacker.level(), target, attacker, amplifier);
             }
-            LAST_TRIGGER_TIME.put(attacker.getUUID(), now);
-
-            MobEffectInstance effect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
-            int amplifier = effect != null ? effect.getAmplifier() : 0;
-
-            ChainLightningHelper.createChainLightning(attacker.level(), target, attacker, amplifier);
         }
     }
 
+    /**
+     * 击退目标
+     */
     private static void knockback(LivingEntity target, LivingEntity attacker, float strength) {
         double dx = attacker.getX() - target.getX();
         double dz = attacker.getZ() - target.getZ();
 
         target.knockback(strength, dx, dz);
+    }
+
+    /**
+     * 玩家退出时清理其冷却记录，避免 LAST_TRIGGER_TIME 长期累积（防止轻微内存泄漏）
+     */
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        LAST_TRIGGER_TIME.remove(event.getEntity().getUUID());
     }
 }

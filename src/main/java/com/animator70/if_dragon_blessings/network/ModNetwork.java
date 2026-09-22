@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 // Forge 类
 import net.minecraftforge.network.NetworkDirection;
@@ -49,6 +50,13 @@ public class ModNetwork {
                 .decoder(ConfigSyncPacket::new)
                 .consumerMainThread(ConfigSyncPacket::handle)
                 .add();
+
+        // 冰冻状态同步包
+        CHANNEL.messageBuilder(SetFrozenPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SetFrozenPacket::encode)
+                .decoder(SetFrozenPacket::new)
+                .consumerMainThread(SetFrozenPacket::handle)
+                .add();
     }
 
     public static void sendChainLightning(ServerLevel level, BlockPos center, List<Integer> entityIds) {
@@ -66,5 +74,13 @@ public class ModNetwork {
      */
     public static void sendConfigSync(ServerPlayer player) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new ConfigSyncPacket());
+    }
+
+    /**
+     * 把冰冻状态同步给所有追踪该实体的客户端 + 实体自己
+     */
+    public static void sendFrozen(Entity entity, int frozenTicks) {
+        CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity),
+                new SetFrozenPacket(entity.getId(), frozenTicks));
     }
 }
