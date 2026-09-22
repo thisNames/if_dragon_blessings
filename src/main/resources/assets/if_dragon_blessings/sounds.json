@@ -1,0 +1,12 @@
+{
+    "lightning_strike": {
+        "category": "neutral",
+        "sounds": [
+            "if_dragon_blessings:lightning_strike_0",
+            "if_dragon_blessings:lightning_strike_1",
+            "if_dragon_blessings:lightning_strike_2",
+            "if_dragon_blessings:lightning_strike_3",
+            "if_dragon_blessings:lightning_strike_4"
+        ]
+    }
+}
