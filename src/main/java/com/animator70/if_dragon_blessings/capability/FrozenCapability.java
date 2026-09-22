@@ -29,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * 注意：冰冻是临时状态（10 秒），因此**不做持久化**（不实现 ICapabilitySerializable）。
  * 实体跨 chunk 卸载后，冰冻状态直接丢弃——这符合“临时 debuff”的语义，
  * 也避免卸载期间 frozenTicks 不递减导致的“冰冻暂停”问题。
+ * 存档重载后冰块视觉不补发：冰块只是装饰，实际效果（缓慢等）由原版效果 NBT 恢复，
+ * 下次被冰攻击时冰块会随 MobEffectEvent.Added 正常重新同步。
  */
 public class FrozenCapability {
 

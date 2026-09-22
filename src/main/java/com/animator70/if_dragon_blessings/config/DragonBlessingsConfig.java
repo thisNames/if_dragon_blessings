@@ -14,10 +14,14 @@ public class DragonBlessingsConfig {
     public static final ForgeConfigSpec SPEC;
 
     // —— 闪电链 ——
-    // 搜索半径（格）
+    // 搜索半径上限（格）
     public static final ForgeConfigSpec.IntValue CHAIN_RANGE;
-    // 受到闪电链伤害的实体数量（不含中心目标）
+    // 搜索半径起始值（等级 0）
+    public static final ForgeConfigSpec.IntValue CHAIN_RANGE_BASE;
+    // 受到闪电链伤害的实体数量上限（不含中心目标）
     public static final ForgeConfigSpec.IntValue CHAIN_MAX_TARGETS;
+    // 目标数量起始值（等级 0）
+    public static final ForgeConfigSpec.IntValue CHAIN_MAX_TARGETS_BASE;
     // 电龙之力 buff 的最大有效等级
     public static final ForgeConfigSpec.IntValue LIGHTNING_ATTACK_MAX_LEVEL;
     // 中心目标伤害
@@ -36,19 +40,36 @@ public class DragonBlessingsConfig {
     public static final ForgeConfigSpec.DoubleValue CHAIN_INNER_OPACITY;
     // 闪电链触发冷却（tick）
     public static final ForgeConfigSpec.IntValue CHAIN_COOLDOWN;
+    // 闪电链粒子同步半径（格）
+    public static final ForgeConfigSpec.DoubleValue CHAIN_SYNC_DISTANCE;
+
+    // —— 火龙 / 冰龙攻击 ——
+    // 火龙之力 buff 的最大有效等级
+    public static final ForgeConfigSpec.IntValue FIRE_ATTACK_MAX_LEVEL;
+    // 冰龙之力 buff 的最大有效等级
+    public static final ForgeConfigSpec.IntValue ICE_ATTACK_MAX_LEVEL;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
+        // 电龙攻击
         builder.comment("电龙攻击（闪电链）相关配置").push("chainLightning");
 
         CHAIN_RANGE = builder
-                .comment("闪电链搜索半径（格）：以被击中的目标为中心，向外寻找可被链到的实体。")
-                .defineInRange("searchRange", 8, 1, 32);
+                .comment("闪电链搜索半径上限（格）：等级 0 即为起始半径，每升一级 +2 格，不超过此值。")
+                .defineInRange("searchRange", 14, 1, 48);
+
+        CHAIN_RANGE_BASE = builder
+                .comment("闪电链搜索半径起始值（等级 0 时的半径），每升一级 +2 格，封顶 searchRange。")
+                .defineInRange("searchRangeBase", 8, 1, 48);
 
         CHAIN_MAX_TARGETS = builder
-                .comment("最多受到闪电链伤害的实体数量（不包含被击中的中心目标）。")
-                .defineInRange("maxTargets", 6, 1, 32);
+                .comment("最多受到闪电链伤害的实体数量上限（不包含被击中的中心目标）：等级 0 即为起始数量，每升一级 +1，不超过此值。")
+                .defineInRange("maxTargets", 9, 1, 32);
+
+        CHAIN_MAX_TARGETS_BASE = builder
+                .comment("闪电链目标数量起始值（等级 0），每升一级 +1，封顶 maxTargets。")
+                .defineInRange("maxTargetsBase", 6, 1, 32);
 
         LIGHTNING_ATTACK_MAX_LEVEL = builder
                 .comment("电龙之力（lightning_attack）buff 的最大有效等级，超过部分按此上限计算。")
@@ -85,6 +106,23 @@ public class DragonBlessingsConfig {
         CHAIN_COOLDOWN = builder
                 .comment("闪电链触发的冷却时间（tick）。防止手速过快时闪电链频繁叠加。")
                 .defineInRange("cooldown", 10, 0, 200);
+
+        CHAIN_SYNC_DISTANCE = builder
+                .comment("闪电链粒子效果的同步半径（格）：只向该范围内玩家发送粒子包。建议不小于闪电链搜索半径，否则远处玩家看不到粒子。")
+                .defineInRange("syncDistance", 64.0D, 8.0D, 256.0D);
+
+        builder.pop();
+
+        // 火龙/冰龙攻击
+        builder.comment("火龙 / 冰龙攻击相关配置").push("dragonAttacks");
+
+        FIRE_ATTACK_MAX_LEVEL = builder
+                .comment("火龙之力（fire_attack）buff 的最大有效等级，超过部分按此上限计算。每级 +25% 燃烧/烈焰标记时长与击退强度。")
+                .defineInRange("fireAttackMaxLevel", 3, 1, 10);
+
+        ICE_ATTACK_MAX_LEVEL = builder
+                .comment("冰龙之力（ice_attack）buff 的最大有效等级，超过部分按此上限计算。每级 +25% 冰封/缓慢/挖掘疲劳时长。")
+                .defineInRange("iceAttackMaxLevel", 3, 1, 10);
 
         builder.pop();
 

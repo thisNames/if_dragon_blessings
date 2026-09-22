@@ -2,6 +2,7 @@ package com.animator70.if_dragon_blessings.network;
 
 // 我的类
 import com.animator70.if_dragon_blessings.IfDragonBlessings;
+import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
 
 // Minecraft 类
 import net.minecraft.core.BlockPos;
@@ -64,7 +65,7 @@ public class ModNetwork {
                 center.getX() + 0.5,
                 center.getY() + 0.5,
                 center.getZ() + 0.5,
-                64.0,
+                DragonBlessingsConfig.CHAIN_SYNC_DISTANCE.get(),
                 level.dimension())),
                 new ChainLightningPacket(entityIds));
     }
