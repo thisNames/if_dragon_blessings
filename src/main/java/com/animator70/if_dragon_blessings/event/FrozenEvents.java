@@ -7,6 +7,12 @@ import com.animator70.if_dragon_blessings.init.ModMobEffects;
 import com.animator70.if_dragon_blessings.network.ModNetwork;
 
 // Minecraft 类
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -44,9 +50,9 @@ public class FrozenEvents {
             return;
         }
 
-        if (event.getEffectInstance() != null
-                && event.getEffectInstance().getEffect() == ModMobEffects.FROZEN.get()) {
+        if (event.getEffectInstance() != null && event.getEffectInstance().getEffect() == ModMobEffects.FROZEN.get()) {
             int ticks = event.getEffectInstance().getDuration();
+
             FrozenCapability.get(entity).ifPresent(cap -> cap.setFrozenTicks(ticks));
             ModNetwork.sendFrozen(entity, ticks);
         }
@@ -63,10 +69,11 @@ public class FrozenEvents {
             return;
         }
 
-        if (event.getEffectInstance() != null
-                && event.getEffectInstance().getEffect() == ModMobEffects.FROZEN.get()) {
+        if (event.getEffectInstance() != null && event.getEffectInstance().getEffect() == ModMobEffects.FROZEN.get()) {
             FrozenCapability.get(entity).ifPresent(cap -> cap.setFrozenTicks(0));
             ModNetwork.sendFrozen(entity, 0);
+
+            spawnBreakEffects(entity);
         }
     }
 
@@ -84,6 +91,32 @@ public class FrozenEvents {
         if (event.getEffect() == ModMobEffects.FROZEN.get()) {
             FrozenCapability.get(entity).ifPresent(cap -> cap.setFrozenTicks(0));
             ModNetwork.sendFrozen(entity, 0);
+
+            spawnBreakEffects(entity);
+        }
+    }
+
+    /**
+     * 播放原版碎冰音效 + 生成原版冰块碎裂粒子（效果消失时调用，模拟冰块碎裂融化）
+     */
+    private static void spawnBreakEffects(LivingEntity entity) {
+        // 原版玻璃碎裂音效（碎冰）
+        entity.playSound(SoundEvents.GLASS_BREAK, 1.0F, 1.0F);
+
+        // 原版方块碎裂粒子 + 冰块，在实体周围生成 8 粒
+        if (entity.level() instanceof ServerLevel serverLevel) {
+            BlockState iceState = Blocks.ICE.defaultBlockState();
+            double x = entity.getX();
+            double y = entity.getY() + entity.getBbHeight() / 2.0D;
+            double z = entity.getZ();
+            double dx = entity.getBbWidth() / 2.0D;
+            double dy = entity.getBbHeight() / 2.0D;
+            double dz = entity.getBbWidth() / 2.0D;
+
+            // 发送粒子
+            serverLevel.sendParticles(
+                    new BlockParticleOption(ParticleTypes.BLOCK, iceState),
+                    x, y, z, 8, dx, dy, dz, 0.1D);
         }
     }
 }
