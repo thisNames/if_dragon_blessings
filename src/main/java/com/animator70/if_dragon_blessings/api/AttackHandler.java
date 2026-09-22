@@ -45,11 +45,12 @@ public class AttackHandler {
 
         LivingEntity target = event.getEntity();
 
-        // 火龙：点燃 + 轻微击退
+        // 火龙：点燃 5 秒 + 烈焰标记 5 秒 + 击退
         if (attacker.hasEffect(ModMobEffects.FIRE_ATTACK.get())) {
             target.setSecondsOnFire(5);
+            target.addEffect(new MobEffectInstance(ModMobEffects.BLAZE.get(), 100, 0));
 
-            knockback(target, attacker, 0.35F);
+            knockback(target, attacker, 1.0F);
         }
 
         // 冰龙：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒）

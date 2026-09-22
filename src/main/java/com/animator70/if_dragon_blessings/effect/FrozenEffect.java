@@ -1,5 +1,6 @@
 package com.animator70.if_dragon_blessings.effect;
 
+// Minecraft 类
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 
