@@ -1,5 +1,8 @@
 package com.animator70.if_dragon_blessings.client.particle;
 
+// 我的类
+import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
+
 // MJ 类
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -24,24 +27,20 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * 闪电链粒子：在两个实体之间生成锯齿状闪电
- * 
+ * 闪电链粒子：在两个实体之间生成锯齿状闪电。
+ *
  * 视觉结构：
- * - 主链：一条锯齿状的链条（中点位移分形生成）
- * - 分支：主链上随机长出侧枝，侧枝再继续分叉，形成类似菌类根茎的发散形状
+ * - 主链：一条锯齿状的链条（中点位移分形生成）；
+ * - 分支：主链上随机长出侧枝，侧枝再继续分叉，形成类似菌类根茎的发散形状。
  * 
- * 渲染为“紫色光晕 + 白色亮芯”双层，加色混合叠加，随时间淡出
- * 每个闪电使用独立随机种子，保证每次生成的形状都不同
+ * 渲染为“外层光晕 + 内层亮芯”双层，加色混合叠加，随时间淡出。
+ * 颜色从 {@link DragonBlessingsConfig} 读取，每个闪电使用独立随机种子保证形状不同。
  */
 public class LightningChainParticle extends Particle {
-    // 紫色光晕
-    private static final int OUTER_COLOR = 0xA929EE;
-    // 白色亮芯
-    private static final int INNER_COLOR = 0xFFFFFF;
 
     /**
-     * 自定义粒子渲染类型
-     * 用加色混合（SRC_ALPHA + ONE）画纯色四边形，关闭深度写入让闪电半透明叠加
+     * 自定义粒子渲染类型：
+     * 用加色混合（SRC_ALPHA + ONE）画纯色四边形，关闭深度写入让闪电半透明叠加。
      */
     private static final ParticleRenderType RENDER_TYPE = new ParticleRenderType() {
         @Override
@@ -78,12 +77,26 @@ public class LightningChainParticle extends Particle {
     // 闪电链的总长度，用于按长度缩放宽度（短链更细）
     private final double totalLength;
 
+    // 闪电链颜色（从配置读取）
+    private final int outerColor;
+    private final int innerColor;
+    // 闪电链不透明度（从配置读取）
+    private final float outerOpacity;
+    private final float innerOpacity;
+
     public LightningChainParticle(ClientLevel level, Vec3 start, Vec3 end) {
         super(level, start.x, start.y, start.z);
 
         // 用世界随机源播种独立随机数，避免多个粒子共享同一个随机流导致形状雷同
         this.rand = new Random(level.random.nextLong());
         this.totalLength = end.subtract(start).length();
+
+        // 从配置读取闪电链颜色
+        this.outerColor = DragonBlessingsConfig.CHAIN_OUTER_COLOR.get();
+        this.innerColor = DragonBlessingsConfig.CHAIN_INNER_COLOR.get();
+        // 从配置读取闪电链不透明度（只在创建时读一次，渲染时用字段）
+        this.outerOpacity = DragonBlessingsConfig.CHAIN_OUTER_OPACITY.get().floatValue();
+        this.innerOpacity = DragonBlessingsConfig.CHAIN_INNER_OPACITY.get().floatValue();
 
         // 存活时长随机化，让每条闪电的淡出节奏略有不同
         this.lifetime = 10 + this.rand.nextInt(5);
@@ -106,6 +119,11 @@ public class LightningChainParticle extends Particle {
 
     @Override
     public ParticleRenderType getRenderType() {
+        // 防御：若 positionColorShader 不可用（如光影环境下被替换为 null），
+        // 返回 NO_RENDER 跳过渲染，避免 setShader(null) 引发崩溃。
+        if (GameRenderer.getPositionColorShader() == null) {
+            return ParticleRenderType.NO_RENDER;
+        }
         return RENDER_TYPE;
     }
 
@@ -114,7 +132,6 @@ public class LightningChainParticle extends Particle {
         // 根据剩余寿命计算整体透明度（逐渐淡出）
         float lifeFraction = this.age / (float) this.lifetime;
         int alpha = (int) (255 * (1.0F - lifeFraction));
-
         if (alpha <= 0) {
             return;
         }
@@ -128,7 +145,7 @@ public class LightningChainParticle extends Particle {
     }
 
     /**
-     * 把一批分段画成“外紫内白”的双层发光四边形
+     * 把一批分段画成“外层 + 内芯”的双层发光四边形
      * 核心：把每段都展开成一个朝向相机的窄四边形（billboard）
      * 这样无论从哪个角度看，闪电都有宽度、不会变成一条细线
      */
@@ -137,18 +154,16 @@ public class LightningChainParticle extends Particle {
             return;
         }
 
-        // 外层光晕更透明，内层亮芯更亮
-        int outerAlpha = Math.max(1, alpha / 2);
-        int innerAlpha = alpha;
+        // 外层光晕与内芯的不透明度分别由配置控制
+        int outerAlpha = (int) (alpha * this.outerOpacity);
+        int innerAlpha = (int) (alpha * this.innerOpacity);
 
         for (Vec3[] segment : segments) {
             // 转成相机相对坐标（粒子渲染的标准做法：顶点坐标减相机位置）
             Vec3 a = segment[0].subtract(cam);
             Vec3 c = segment[1].subtract(cam);
             Vec3 dir = c.subtract(a);
-
             double len = dir.length();
-
             if (len < 1.0E-4D) {
                 continue;
             }
@@ -166,10 +181,10 @@ public class LightningChainParticle extends Particle {
             double lengthFactor = 0.4D + 0.6D * Math.min(this.totalLength / 3.0D, 1.0D);
             double widthBase = 0.012D * distFactor * lengthFactor;
 
-            // 外层紫色光晕（宽）
-            emitQuad(buffer, a, c, perpendicular, widthBase * 2.5D * widthScale, OUTER_COLOR, outerAlpha);
-            // 内层白色亮芯（细）
-            emitQuad(buffer, a, c, perpendicular, widthBase * widthScale, INNER_COLOR, innerAlpha);
+            // 外层光晕（宽）
+            emitQuad(buffer, a, c, perpendicular, widthBase * 2.5D * widthScale, this.outerColor, outerAlpha);
+            // 内层亮芯（细）
+            emitQuad(buffer, a, c, perpendicular, widthBase * widthScale, this.innerColor, innerAlpha);
         }
     }
 
@@ -185,7 +200,6 @@ public class LightningChainParticle extends Particle {
             double width,
             int color,
             int alpha) {
-        // code...
         Vec3 offset = perpendicular.scale(width);
 
         // 从 int 颜色值里拆出 RGB 分量
@@ -234,7 +248,6 @@ public class LightningChainParticle extends Particle {
             double spreadAngle,
             double lengthFactor,
             int depth) {
-        // code...
         // 用前后两个点求该点处的切向
         Vec3 from = parentPoints.get(index);
         Vec3 prev = parentPoints.get(index - 1);
@@ -282,11 +295,9 @@ public class LightningChainParticle extends Particle {
 
                 Vec3 dir = b.subtract(a);
                 Vec3 mid = a.add(dir.scale(0.5D));
-
                 // 偏移方向垂直于线段，偏移量随线段长度和粗糙度变化
                 Vec3 perpendicular = randomPerpendicular(dir);
                 double offsetMagnitude = dir.length() * rough * (this.rand.nextDouble() * 2.0D - 1.0D);
-
                 next.add(mid.add(perpendicular.scale(offsetMagnitude)));
             }
 

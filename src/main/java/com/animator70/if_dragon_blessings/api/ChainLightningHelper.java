@@ -1,6 +1,7 @@
 package com.animator70.if_dragon_blessings.api;
 
 // 我的类
+import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
 import com.animator70.if_dragon_blessings.init.ModSounds;
 import com.animator70.if_dragon_blessings.network.ModNetwork;
 
@@ -19,37 +20,45 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 闪电链逻辑：以被击中的目标为中心，向四周方向均衡地发散闪电
- * 被链到的目标也会受到电击伤害
+ * 闪电链逻辑：以被击中的目标为中心，向四周方向均衡地发散闪电，
+ * 被链到的目标也会受到电击伤害。
  * 
  * 整体流程：
- * 1. 被击中的目标（中心）先受到闪电伤害，并播放一次雷声
- * 2. 找出中心周围 RANGE 范围内所有可被链到的目标
- * 3. 用“方向均衡”算法挑出最多 MAX_CHAIN_TARGETS 个，避免都朝一个方向
- * 4. 把「中心 + 被链目标」的实体 ID 通过包发给客户端，由客户端渲染闪电链粒子
+ * 1. 被击中的目标（中心）先受到闪电伤害，并播放一次雷声；
+ * 2. 找出中心周围 RANGE 范围内所有可被链到的目标；
+ * 3. 用“方向均衡”算法挑出最多 MAX_CHAIN_TARGETS 个，避免都朝一个方向；
+ * 4. 把「中心 + 被链目标」的实体 ID 通过包发给客户端，由客户端渲染闪电链粒子。
+ * 
+ * 所有数值均从 {@link DragonBlessingsConfig} 读取，可在配置文件中调整。
  */
 public class ChainLightningHelper {
-    // 中心目标受到的闪电伤害
-    private static final float CENTER_DAMAGE = 5.0F;
-    // 被链到的目标伤害，按选取顺序递减；长度须 >= MAX_CHAIN_TARGETS
-    private static final float[] CHAIN_DAMAGE = { 4.0F, 3.5F, 3.0F, 2.5F, 2.0F, 1.5F };
-    // 发散半径（格）
-    private static final int RANGE = 8;
-    // 最大可被链到的目标数量（硬上限，防止生物过多时闪电链爆炸、卡顿）
-    private static final int MAX_CHAIN_TARGETS = 6;
 
     /**
      * 以被击中的目标为中心生成闪电链。
      *
-     * @param level    当前世界
-     * @param target   被击中的目标（闪电链的中心）
-     * @param attacker 攻击者（拥有电龙之力效果的实体）
+     * @param level     当前世界
+     * @param target    被击中的目标（闪电链的中心）
+     * @param attacker  攻击者（拥有电龙之力效果的实体）
+     * @param amplifier 攻击者电龙之力 buff 的等级，用于增强伤害
      */
-    public static void createChainLightning(Level level, LivingEntity target, LivingEntity attacker) {
+    public static void createChainLightning(Level level, LivingEntity target, LivingEntity attacker, int amplifier) {
         // 目标已死或无敌则直接返回
         if (target.isDeadOrDying() || target.isInvulnerable()) {
             return;
         }
+
+        // —— 从配置读取参数 ——
+        int range = DragonBlessingsConfig.CHAIN_RANGE.get();
+        int maxTargets = DragonBlessingsConfig.CHAIN_MAX_TARGETS.get();
+        int maxLevel = DragonBlessingsConfig.LIGHTNING_ATTACK_MAX_LEVEL.get();
+
+        // 有效等级不超过配置上限；等级越高伤害越高（每级 +25%）
+        int effectiveLevel = Math.min(amplifier, maxLevel);
+        double damageMultiplier = 1.0D + effectiveLevel * 0.25D;
+
+        float centerDamage = (float) (DragonBlessingsConfig.CHAIN_CENTER_DAMAGE.get() * damageMultiplier);
+        float chainDamageBase = (float) (DragonBlessingsConfig.CHAIN_DAMAGE_BASE.get() * damageMultiplier);
+        float chainDamageDecay = DragonBlessingsConfig.CHAIN_DAMAGE_DECAY.get().floatValue();
 
         List<LivingEntity> chain = new ArrayList<>();
         Set<LivingEntity> visited = new HashSet<>();
@@ -57,38 +66,35 @@ public class ChainLightningHelper {
         // 中心目标被电；雷声只在中心播放一次，避免多条闪电音效叠加爆音
         chain.add(target);
         visited.add(target);
-
-        hurtWithLightning(level, target, CENTER_DAMAGE);
-
+        hurtWithLightning(level, target, centerDamage);
         target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
 
-        // 以中心为球心、RANGE 为半径的包围盒内查找可被链到的目标
-        AABB box = target.getBoundingBox().inflate(RANGE);
-
+        // 以中心为球心、range 为半径的包围盒内查找可被链到的目标
+        AABB box = target.getBoundingBox().inflate(range);
         List<LivingEntity> candidates = level.getEntitiesOfClass(
                 LivingEntity.class,
                 box,
                 e -> canChainTo(e, attacker, visited));
 
-        // 方向均衡地选择最多 MAX_CHAIN_TARGETS 个目标
-        List<LivingEntity> selected = selectBalanced(candidates, target, MAX_CHAIN_TARGETS);
+        // 方向均衡地选择最多 maxTargets 个目标
+        List<LivingEntity> selected = selectBalanced(candidates, target, maxTargets);
 
-        // 被链到的目标逐个受到电击伤害（不再播放音效）
+        // 被链到的目标逐个受到电击伤害（伤害逐级递减，不再播放音效）
         for (int i = 0; i < selected.size(); i++) {
             LivingEntity chained = selected.get(i);
-
             chain.add(chained);
-            hurtWithLightning(level, chained, CHAIN_DAMAGE[i]);
+
+            // 伤害 = 基础伤害 * (1 - 递减比例 * 序号)，最低保留 10%
+            float damage = chainDamageBase * Math.max(1.0F - i * chainDamageDecay, 0.1F);
+            hurtWithLightning(level, chained, damage);
         }
 
         // 仅在服务端发送包（客户端由包处理器生成闪电链粒子）
         if (!level.isClientSide && chain.size() >= 2 && level instanceof ServerLevel serverLevel) {
             List<Integer> ids = new ArrayList<>();
-
             for (LivingEntity e : chain) {
                 ids.add(e.getId());
             }
-
             ModNetwork.sendChainLightning(serverLevel, target.blockPosition(), ids);
         }
     }
@@ -107,7 +113,6 @@ public class ChainLightningHelper {
         if (visited.contains(entity)) {
             return false;
         }
-
         return !entity.isDeadOrDying() && !entity.isInvulnerable();
     }
 
@@ -121,14 +126,12 @@ public class ChainLightningHelper {
      */
     private static List<LivingEntity> selectBalanced(List<LivingEntity> candidates, LivingEntity center, int maxCount) {
         List<LivingEntity> selected = new ArrayList<>();
-
         if (candidates.isEmpty()) {
             return selected;
         }
 
         // 复制一份候选，按到中心的距离由近到远排序
         List<LivingEntity> remaining = new ArrayList<>(candidates);
-
         remaining.sort(Comparator.comparingDouble(e -> e.distanceToSqr(center)));
         // 第一个直接取最近的
         selected.add(remaining.remove(0));
@@ -140,7 +143,6 @@ public class ChainLightningHelper {
 
             for (int i = 0; i < remaining.size(); i++) {
                 double diversity = directionDiversity(remaining.get(i), center, selected);
-
                 if (diversity > bestDiversity) {
                     bestDiversity = diversity;
                     bestIndex = i;
@@ -150,7 +152,6 @@ public class ChainLightningHelper {
             if (bestIndex < 0) {
                 break;
             }
-
             selected.add(remaining.remove(bestIndex));
         }
 

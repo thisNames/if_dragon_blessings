@@ -7,6 +7,7 @@ import com.animator70.if_dragon_blessings.IfDragonBlessings;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 // Forge 类
 import net.minecraftforge.network.NetworkDirection;
@@ -35,10 +36,18 @@ public class ModNetwork {
     public static void register() {
         int id = 0;
 
+        // 闪电链渲染包
         CHANNEL.messageBuilder(ChainLightningPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(ChainLightningPacket::encode)
                 .decoder(ChainLightningPacket::new)
                 .consumerMainThread(ChainLightningPacket::handle)
+                .add();
+
+        // 配置同步包
+        CHANNEL.messageBuilder(ConfigSyncPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ConfigSyncPacket::encode)
+                .decoder(ConfigSyncPacket::new)
+                .consumerMainThread(ConfigSyncPacket::handle)
                 .add();
     }
 
@@ -50,5 +59,12 @@ public class ModNetwork {
                 64.0,
                 level.dimension())),
                 new ChainLightningPacket(entityIds));
+    }
+
+    /**
+     * 把服务端的 COMMON 配置发送给指定玩家
+     */
+    public static void sendConfigSync(ServerPlayer player) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new ConfigSyncPacket());
     }
 }
