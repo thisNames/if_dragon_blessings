@@ -16,6 +16,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 // Java 类
 import java.util.ArrayList;
@@ -118,13 +119,15 @@ public class ChainLightningHelper {
         }
 
         // 仅在服务端发送包（客户端由包处理器生成闪电链粒子）
+        // 发送坐标而非实体 ID：实体可能已被转换/移除，坐标不受影响，闪电视觉不会丢失
         if (!level.isClientSide && chain.size() >= 2 && level instanceof ServerLevel serverLevel) {
-            List<Integer> ids = new ArrayList<>();
+            List<Vec3> positions = new ArrayList<>();
 
             for (LivingEntity e : chain) {
-                ids.add(e.getId());
+                positions.add(e.position().add(0.0D, e.getBbHeight() / 2.0D, 0.0D));
             }
-            ModNetwork.sendChainLightning(serverLevel, target.blockPosition(), ids);
+
+            ModNetwork.sendChainLightning(serverLevel, target.blockPosition(), positions);
         }
     }
 
@@ -259,10 +262,12 @@ public class ChainLightningHelper {
      */
     private static void hurtWithLightning(Level level, LivingEntity entity, float damage, int amplifier) {
         if (DragonBlessingsConfig.USE_VANILLA_LIGHTNING.get()) {
-            // 原版雷击电：变体转换 + 雷击伤害（附带点燃）
-            applyThunderConversion(level, entity);
-
+            // 原版雷击电：先雷击伤害（附带点燃），再变体转换。
+            // 顺序必须"先伤害后转换"：替换型转换（猪→僵尸猪灵等）会移除旧实体，
+            // 若先转换，后续 hurt 落在已移除的旧实体上，闪电伤害就丢失了。
             entity.hurt(level.damageSources().lightningBolt(), damage);
+
+            applyThunderConversion(level, entity);
         } else {
             // 魔法电（默认）：只造成魔法伤害，不点燃、不转换
             entity.hurt(level.damageSources().magic(), damage);

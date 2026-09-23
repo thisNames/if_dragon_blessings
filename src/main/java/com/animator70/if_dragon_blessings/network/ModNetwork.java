@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 // Forge 类
 import net.minecraftforge.network.NetworkDirection;
@@ -60,14 +61,14 @@ public class ModNetwork {
                 .add();
     }
 
-    public static void sendChainLightning(ServerLevel level, BlockPos center, List<Integer> entityIds) {
+    public static void sendChainLightning(ServerLevel level, BlockPos center, List<Vec3> positions) {
         CHANNEL.send(PacketDistributor.NEAR.with(PacketDistributor.TargetPoint.p(
                 center.getX() + 0.5,
                 center.getY() + 0.5,
                 center.getZ() + 0.5,
                 DragonBlessingsConfig.CHAIN_SYNC_DISTANCE.get(),
                 level.dimension())),
-                new ChainLightningPacket(entityIds));
+                new ChainLightningPacket(positions));
     }
 
     /**
