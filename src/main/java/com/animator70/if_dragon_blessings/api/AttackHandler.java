@@ -32,6 +32,11 @@ public class AttackHandler {
     // 实体离开世界时（EntityLeaveLevelEvent）自动清理，玩家与非玩家一视同仁，不会累积。
     private static final Map<UUID, Long> LAST_TRIGGER_TIME = new HashMap<>();
 
+    /**
+     * 攻击事件：判断攻击者是否持有对应攻击方式效果，持有才触发对应攻击。
+     * 「是否有效果」的判断收敛在这里，各攻击方法只负责“打出攻击”，
+     * 因此攻击方式不再与效果强绑定（将来可从物品等其他来源触发）。
+     */
     @SubscribeEvent
     public static void onLivingAttack(LivingAttackEvent event) {
         Entity sourceEntity = event.getSource().getEntity();
@@ -43,62 +48,92 @@ public class AttackHandler {
             return;
         }
 
+        // 获取实体目标
         LivingEntity target = event.getEntity();
 
-        // 【火龙】点燃 5 秒 + 烈焰标记 5 秒 + 击退（等级越高持续越久、击退越强）
-        if (attacker.hasEffect(ModMobEffects.FIRE_ATTACK.get())) {
-            MobEffectInstance fireEffect = attacker.getEffect(ModMobEffects.FIRE_ATTACK.get());
+        // 火龙：持有火龙之力才打出火龙攻击
+        MobEffectInstance fireEffect = attacker.getEffect(ModMobEffects.FIRE_ATTACK.get());
 
-            double fireMultiplier = AttackMultipliers.of(
-                    fireEffect,
-                    DragonBlessingsConfig.FIRE_ATTACK_MAX_LEVEL.get());
-
-            // 烈焰标记的等级镜像火龙之力的等级（例：3 级火龙之力 → 3 级烈焰）
-            int blazeAmplifier = fireEffect != null ? fireEffect.getAmplifier() : 0;
-
-            target.setSecondsOnFire((int) Math.round(5 * fireMultiplier));
-
-            target.addEffect(new MobEffectInstance(
-                    ModMobEffects.BLAZE.get(),
-                    (int) Math.round(100 * fireMultiplier), blazeAmplifier));
-
-            knockback(target, attacker, (float) fireMultiplier);
+        if (fireEffect != null) {
+            performFireAttack(attacker, target, fireEffect);
         }
 
-        // 【冰龙】冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒，等级越高持续越久）
-        // 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
-        if (attacker.hasEffect(ModMobEffects.ICE_ATTACK.get())) {
-            MobEffectInstance iceEffect = attacker.getEffect(ModMobEffects.ICE_ATTACK.get());
+        // 冰龙：持有冰龙之力才打出冰龙攻击
+        MobEffectInstance iceEffect = attacker.getEffect(ModMobEffects.ICE_ATTACK.get());
 
-            double iceMultiplier = AttackMultipliers.of(
-                    iceEffect,
-                    DragonBlessingsConfig.ICE_ATTACK_MAX_LEVEL.get());
-
-            // 冰封标记的等级镜像冰龙之力的等级（缓慢/挖掘疲劳保持固定 III）
-            int frozenAmplifier = iceEffect != null ? iceEffect.getAmplifier() : 0;
-
-            int duration = (int) Math.round(200 * iceMultiplier);
-
-            target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, frozenAmplifier));
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
-            target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
+        if (iceEffect != null) {
+            performIceAttack(target, iceEffect);
         }
 
-        // 【电龙】闪电链（带冷却，防止手速过快导致鬼畜）
-        if (attacker.hasEffect(ModMobEffects.LIGHTNING_ATTACK.get())) {
-            long now = attacker.level().getGameTime();
-            long cooldown = DragonBlessingsConfig.CHAIN_COOLDOWN.get();
-            Long lastTrigger = LAST_TRIGGER_TIME.get(attacker.getUUID());
+        // 电龙：持有电龙之力才打出电龙攻击
+        MobEffectInstance lightningEffect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
 
-            // 冷却过了才触发（不 return，避免影响同一次攻击里的火/冰分支）
-            if (lastTrigger == null || now - lastTrigger >= cooldown) {
-                LAST_TRIGGER_TIME.put(attacker.getUUID(), now);
+        if (lightningEffect != null) {
+            performLightningAttack(attacker, target, lightningEffect);
+        }
+    }
 
-                MobEffectInstance effect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
-                int amplifier = effect != null ? effect.getAmplifier() : 0;
+    /**
+     * 【火龙】打出火龙攻击：点燃 + 烈焰标记 + 击退（等级越高持续越久、击退越强）
+     */
+    private static void performFireAttack(LivingEntity attacker, LivingEntity target, MobEffectInstance fireEffect) {
+        double fireMultiplier = AttackMultipliers.of(
+                fireEffect.getAmplifier(),
+                DragonBlessingsConfig.FIRE_ATTACK_MAX_LEVEL.get());
 
-                ChainLightningHelper.createChainLightning(attacker.level(), target, attacker, amplifier);
-            }
+        // 烈焰标记的等级镜像火龙之力的等级（例：3 级火龙之力 → 3 级烈焰）
+        int blazeAmplifier = fireEffect.getAmplifier();
+
+        target.setSecondsOnFire((int) Math.round(5 * fireMultiplier));
+
+        target.addEffect(new MobEffectInstance(
+                ModMobEffects.BLAZE.get(),
+                (int) Math.round(100 * fireMultiplier), blazeAmplifier));
+
+        // 击退
+        knockback(target, attacker, (float) fireMultiplier);
+    }
+
+    /**
+     * 【冰龙】打出冰龙攻击：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒，等级越高持续越久）
+     * 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
+     */
+    private static void performIceAttack(LivingEntity target, MobEffectInstance iceEffect) {
+        double iceMultiplier = AttackMultipliers.of(
+                iceEffect.getAmplifier(),
+                DragonBlessingsConfig.ICE_ATTACK_MAX_LEVEL.get());
+
+        // 冰封标记的等级镜像冰龙之力的等级（缓慢/挖掘疲劳保持固定 III）
+        int frozenAmplifier = iceEffect.getAmplifier();
+        int duration = (int) Math.round(200 * iceMultiplier);
+
+        target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, frozenAmplifier));
+        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
+        target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
+    }
+
+    /**
+     * 【电龙】打出电龙攻击：闪电链（带冷却，防止手速过快导致鬼畜）
+     */
+    private static void performLightningAttack(
+            LivingEntity attacker,
+            LivingEntity target,
+            MobEffectInstance lightningEffect) {
+        // lightning attack code
+        long now = attacker.level().getGameTime();
+        long cooldown = DragonBlessingsConfig.CHAIN_COOLDOWN.get();
+        Long lastTrigger = LAST_TRIGGER_TIME.get(attacker.getUUID());
+
+        // 冷却过了才触发
+        if (lastTrigger == null || now - lastTrigger >= cooldown) {
+            LAST_TRIGGER_TIME.put(attacker.getUUID(), now);
+
+            // 创建闪电链效果
+            ChainLightningHelper.createChainLightning(
+                    attacker.level(),
+                    target,
+                    attacker,
+                    lightningEffect.getAmplifier());
         }
     }
 
