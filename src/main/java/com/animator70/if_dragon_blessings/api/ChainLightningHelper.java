@@ -34,7 +34,6 @@ import java.util.Set;
  * 所有数值均从 {@link DragonBlessingsConfig} 读取，可在配置文件中调整。
  */
 public class ChainLightningHelper {
-
     // 每级固定成长量：半径每级 +2 格，目标数每级 +1（起始值与上限可配置）
     private static final int RANGE_PER_LEVEL = 2;
     private static final int TARGETS_PER_LEVEL = 1;
@@ -57,6 +56,7 @@ public class ChainLightningHelper {
         int maxLevel = DragonBlessingsConfig.LIGHTNING_ATTACK_MAX_LEVEL.get();
         // 有效等级不超过配置上限；等级越高伤害越高（每级 +25%，与火/冰共用倍率算法）
         int effectiveLevel = Math.min(amplifier, maxLevel);
+
         double damageMultiplier = AttackMultipliers.of(amplifier, maxLevel);
 
         // 搜索半径 / 目标数量随等级独立成长：起始值 + 等级 × 固定增量，封顶配置的最大值
@@ -64,14 +64,19 @@ public class ChainLightningHelper {
                 DragonBlessingsConfig.CHAIN_RANGE.get(),
                 DragonBlessingsConfig.CHAIN_RANGE_BASE.get() + effectiveLevel * RANGE_PER_LEVEL);
 
+        // 最大链接数量
         int maxTargets = Math.min(
                 DragonBlessingsConfig.CHAIN_MAX_TARGETS.get(),
                 DragonBlessingsConfig.CHAIN_MAX_TARGETS_BASE.get() + effectiveLevel * TARGETS_PER_LEVEL);
 
+        // 中心伤害
         float centerDamage = (float) (DragonBlessingsConfig.CHAIN_CENTER_DAMAGE.get() * damageMultiplier);
+        // 链式基础伤害
         float chainDamageBase = (float) (DragonBlessingsConfig.CHAIN_DAMAGE_BASE.get() * damageMultiplier);
+        // 链式衰减伤害
         float chainDamageDecay = DragonBlessingsConfig.CHAIN_DAMAGE_DECAY.get().floatValue();
 
+        // 实体集合
         List<LivingEntity> chain = new ArrayList<>();
         Set<LivingEntity> visited = new HashSet<>();
 
@@ -79,17 +84,22 @@ public class ChainLightningHelper {
         chain.add(target);
         visited.add(target);
 
+        // 目标受到电链攻击
         hurtWithLightning(level, target, centerDamage, amplifier);
 
+        // 被攻击到的身上播放雷声
         target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
 
         // 以中心为球心、range 为半径的包围盒内查找可被链到的目标
         AABB box = target.getBoundingBox().inflate(range);
 
+        // PVP 是否允许（读取服务器 server.properties 的 pvp 设置）
+        boolean pvpAllowed = level instanceof ServerLevel serverLevel && serverLevel.getServer().isPvpAllowed();
+
         List<LivingEntity> candidates = level.getEntitiesOfClass(
                 LivingEntity.class,
                 box,
-                e -> canChainTo(e, attacker, visited));
+                e -> canChainTo(e, attacker, visited, pvpAllowed));
 
         // 方向均衡地选择最多 maxTargets 个目标
         List<LivingEntity> selected = selectBalanced(candidates, target, maxTargets);
@@ -116,21 +126,42 @@ public class ChainLightningHelper {
     }
 
     /**
-     * 判断某个实体是否能被闪电链链到。
-     * 排除：玩家、攻击者自己、已被处理过的、已死或无敌的实体。
+     * 判断某个实体是否能被闪电链链到（是否受到电击伤害与感电）
+     * 
+     * 规则：
+     * - 永远排除攻击者自己；
+     * - 已处理过、已死亡或无敌的实体一律排除；
+     * - 攻击者是玩家时：PVP 开启 → 允许链到其他玩家；PVP 关闭 → 额外排除所有玩家；
+     * - 攻击者非玩家时：仅排除自己，其余实体（含玩家）均可被链到。
      */
-    private static boolean canChainTo(LivingEntity entity, LivingEntity attacker, Set<LivingEntity> visited) {
-        if (entity instanceof Player) {
-            return false;
-        }
+    private static boolean canChainTo(
+            LivingEntity entity,
+            LivingEntity attacker,
+            Set<LivingEntity> visited,
+            boolean pvpAllowed) {
+        // code
+        // 实体是攻击者
         if (entity == attacker) {
             return false;
         }
+        // 实体是不是已经在链里了
         if (visited.contains(entity)) {
             return false;
         }
+        // 是否已经死亡、无敌
+        if (entity.isDeadOrDying() || entity.isInvulnerable()) {
+            return false;
+        }
 
-        return !entity.isDeadOrDying() && !entity.isInvulnerable();
+        return !shouldExcludePlayerTarget(attacker, entity, pvpAllowed);
+    }
+
+    /**
+     * 判断“目标玩家”是否应被排除在闪电链之外。
+     * 仅当攻击者是玩家、目标也是玩家、且服务器关闭 PVP 时才排除（玩家之间不互相伤害）。
+     */
+    private static boolean shouldExcludePlayerTarget(LivingEntity attacker, LivingEntity target, boolean pvpAllowed) {
+        return attacker instanceof Player && target instanceof Player && !pvpAllowed;
     }
 
     /**
