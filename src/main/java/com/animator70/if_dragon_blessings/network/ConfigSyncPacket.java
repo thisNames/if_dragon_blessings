@@ -37,6 +37,7 @@ public class ConfigSyncPacket {
     private final double syncDistance;
     private final boolean useVanillaLightning;
     private final boolean magicCreeperConversion;
+    private final boolean reactionEnabled;
 
     /**
      * 服务端构造：从本地（权威）配置读取当前值
@@ -60,6 +61,7 @@ public class ConfigSyncPacket {
         this.syncDistance = DragonBlessingsConfig.CHAIN_SYNC_DISTANCE.get();
         this.useVanillaLightning = DragonBlessingsConfig.USE_VANILLA_LIGHTNING.get();
         this.magicCreeperConversion = DragonBlessingsConfig.MAGIC_CREEPER_CONVERSION.get();
+        this.reactionEnabled = DragonBlessingsConfig.REACTION_ENABLED.get();
     }
 
     /**
@@ -84,6 +86,7 @@ public class ConfigSyncPacket {
         this.syncDistance = buf.readDouble();
         this.useVanillaLightning = buf.readBoolean();
         this.magicCreeperConversion = buf.readBoolean();
+        this.reactionEnabled = buf.readBoolean();
     }
 
     /**
@@ -108,6 +111,7 @@ public class ConfigSyncPacket {
         buf.writeDouble(this.syncDistance);
         buf.writeBoolean(this.useVanillaLightning);
         buf.writeBoolean(this.magicCreeperConversion);
+        buf.writeBoolean(this.reactionEnabled);
     }
 
     public void handle(Supplier<NetworkEvent.Context> contextSupplier) {
@@ -133,6 +137,7 @@ public class ConfigSyncPacket {
             DragonBlessingsConfig.CHAIN_SYNC_DISTANCE.set(this.syncDistance);
             DragonBlessingsConfig.USE_VANILLA_LIGHTNING.set(this.useVanillaLightning);
             DragonBlessingsConfig.MAGIC_CREEPER_CONVERSION.set(this.magicCreeperConversion);
+            DragonBlessingsConfig.REACTION_ENABLED.set(this.reactionEnabled);
         });
 
         context.setPacketHandled(true);

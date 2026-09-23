@@ -47,6 +47,10 @@ public class DragonBlessingsConfig {
     // 魔法电模式下是否把苦力怕转换成闪电苦力怕（小彩蛋，不带火）
     public static final ForgeConfigSpec.BooleanValue MAGIC_CREEPER_CONVERSION;
 
+    // —— 元素反应 ——
+    // 元素反应总开关
+    public static final ForgeConfigSpec.BooleanValue REACTION_ENABLED;
+
     // —— 火龙 / 冰龙攻击 ——
     // 火龙之力 buff 的最大有效等级
     public static final ForgeConfigSpec.IntValue FIRE_ATTACK_MAX_LEVEL;
@@ -123,6 +127,15 @@ public class DragonBlessingsConfig {
         MAGIC_CREEPER_CONVERSION = builder
                 .comment("魔法电模式下是否把苦力怕转换成闪电苦力怕（只有苦力怕受伤的世界达成！）。true = 转换（默认）；false = 不转换。")
                 .define("magicCreeperConversion", true);
+
+        builder.pop();
+
+        // 元素反应
+        builder.comment("元素反应相关配置").push("elementalReactions");
+
+        REACTION_ENABLED = builder
+                .comment("元素反应总开关：冰+火=融化、冰+电=超导、火+电=超载。true = 开启（默认）；false = 关闭。")
+                .define("enabled", true);
 
         builder.pop();
 

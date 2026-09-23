@@ -41,9 +41,11 @@ public class AttackHandler {
     public static void onLivingAttack(LivingAttackEvent event) {
         Entity sourceEntity = event.getSource().getEntity();
 
+        // 攻击者必须是活体实体
         if (!(sourceEntity instanceof LivingEntity attacker)) {
             return;
         }
+        // 客户端不处理
         if (attacker.level().isClientSide) {
             return;
         }
@@ -53,21 +55,18 @@ public class AttackHandler {
 
         // 火龙：持有火龙之力才打出火龙攻击
         MobEffectInstance fireEffect = attacker.getEffect(ModMobEffects.FIRE_ATTACK.get());
-
         if (fireEffect != null) {
             performFireAttack(attacker, target, fireEffect);
         }
 
         // 冰龙：持有冰龙之力才打出冰龙攻击
         MobEffectInstance iceEffect = attacker.getEffect(ModMobEffects.ICE_ATTACK.get());
-
         if (iceEffect != null) {
-            performIceAttack(target, iceEffect);
+            performIceAttack(attacker, target, iceEffect);
         }
 
         // 电龙：持有电龙之力才打出电龙攻击
         MobEffectInstance lightningEffect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
-
         if (lightningEffect != null) {
             performLightningAttack(attacker, target, lightningEffect);
         }
@@ -84,11 +83,18 @@ public class AttackHandler {
         // 烈焰标记的等级镜像火龙之力的等级（例：3 级火龙之力 → 3 级烈焰）
         int blazeAmplifier = fireEffect.getAmplifier();
 
+        // 燃烧时间随等级怎加
         target.setSecondsOnFire((int) Math.round(5 * fireMultiplier));
-
+        // 添加烈焰标记
         target.addEffect(new MobEffectInstance(
                 ModMobEffects.BLAZE.get(),
                 (int) Math.round(100 * fireMultiplier), blazeAmplifier));
+
+        // 元素反应：火 + 冰(融化) / 火 + 电(超载)，合并成一次伤害结算（避免无敌帧吞叠加）
+        double reactionDamage = ElementalReactionHelper.applyBlazeReactions(target, fireEffect.getAmplifier());
+        if (reactionDamage > 0.0D) {
+            target.hurt(target.level().damageSources().indirectMagic(attacker, null), (float) reactionDamage);
+        }
 
         // 击退
         knockback(target, attacker, (float) fireMultiplier);
@@ -98,7 +104,7 @@ public class AttackHandler {
      * 【冰龙】打出冰龙攻击：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒，等级越高持续越久）
      * 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
      */
-    private static void performIceAttack(LivingEntity target, MobEffectInstance iceEffect) {
+    private static void performIceAttack(LivingEntity attacker, LivingEntity target, MobEffectInstance iceEffect) {
         double iceMultiplier = AttackMultipliers.of(
                 iceEffect.getAmplifier(),
                 DragonBlessingsConfig.ICE_ATTACK_MAX_LEVEL.get());
@@ -107,9 +113,16 @@ public class AttackHandler {
         int frozenAmplifier = iceEffect.getAmplifier();
         int duration = (int) Math.round(200 * iceMultiplier);
 
+        // 添加效果
         target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, frozenAmplifier));
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
         target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
+
+        // 元素反应：冰 + 火(融化) / 冰 + 电(超导)，合并成一次伤害结算（避免无敌帧吞叠加）
+        double reactionDamage = ElementalReactionHelper.applyFrozenReactions(target, iceEffect.getAmplifier());
+        if (reactionDamage > 0.0D) {
+            target.hurt(target.level().damageSources().indirectMagic(attacker, null), (float) reactionDamage);
+        }
     }
 
     /**

@@ -4,5 +4,8 @@
     "effect.if_dragon_blessings.shocked": "感电",
     "effect.if_dragon_blessings.fire_attack": "火龙的祝福",
     "effect.if_dragon_blessings.ice_attack": "冰龙的恩惠",
-    "effect.if_dragon_blessings.lightning_attack": "电龙的庇护"
+    "effect.if_dragon_blessings.lightning_attack": "电龙的庇护",
+    "effect.if_dragon_blessings.melt": "融化",
+    "effect.if_dragon_blessings.superconduct": "超导",
+    "effect.if_dragon_blessings.overload": "超载"
 }

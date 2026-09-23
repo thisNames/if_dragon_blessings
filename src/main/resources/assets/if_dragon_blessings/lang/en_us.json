@@ -4,5 +4,8 @@
     "effect.if_dragon_blessings.shocked": "Shocked",
     "effect.if_dragon_blessings.fire_attack": "Fire Dragon's Might",
     "effect.if_dragon_blessings.ice_attack": "Ice Dragon's Might",
-    "effect.if_dragon_blessings.lightning_attack": "Lightning Dragon's Might"
+    "effect.if_dragon_blessings.lightning_attack": "Lightning Dragon's Might",
+    "effect.if_dragon_blessings.melt": "Melt",
+    "effect.if_dragon_blessings.superconduct": "Superconduct",
+    "effect.if_dragon_blessings.overload": "Overload"
 }

@@ -60,7 +60,7 @@ public class ChainLightningHelper {
         int maxLevel = DragonBlessingsConfig.LIGHTNING_ATTACK_MAX_LEVEL.get();
         // 有效等级不超过配置上限；等级越高伤害越高（每级 +25%，与火/冰共用倍率算法）
         int effectiveLevel = Math.min(amplifier, maxLevel);
-
+        // 伤害倍率
         double damageMultiplier = AttackMultipliers.of(amplifier, maxLevel);
 
         // 搜索半径 / 目标数量随等级独立成长：起始值 + 等级 × 固定增量，封顶配置的最大值
@@ -88,8 +88,8 @@ public class ChainLightningHelper {
         chain.add(target);
         visited.add(target);
 
-        // 目标受到电链攻击
-        hurtWithLightning(level, target, centerDamage, amplifier);
+        // 目标受到电链攻击（首个被击中实体）
+        hurtWithLightning(level, target, attacker, centerDamage, amplifier);
 
         // 被攻击到的身上播放雷声
         target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
@@ -100,6 +100,7 @@ public class ChainLightningHelper {
         // PVP 是否允许（读取服务器 server.properties 的 pvp 设置）
         boolean pvpAllowed = level instanceof ServerLevel serverLevel && serverLevel.getServer().isPvpAllowed();
 
+        // 查找所有可被链到的目标
         List<LivingEntity> candidates = level.getEntitiesOfClass(
                 LivingEntity.class,
                 box,
@@ -115,7 +116,8 @@ public class ChainLightningHelper {
 
             // 伤害 = 基础伤害 * (1 - 递减比例 * 序号)，最低保留 10%
             float damage = chainDamageBase * Math.max(1.0F - i * chainDamageDecay, 0.1F);
-            hurtWithLightning(level, chained, damage, amplifier);
+            // 被链到实体
+            hurtWithLightning(level, chained, attacker, damage, amplifier);
         }
 
         // 仅在服务端发送包（客户端由包处理器生成闪电链粒子）
@@ -260,21 +262,32 @@ public class ChainLightningHelper {
      * - true = 原版雷击电：变体转换（苦力怕→闪电苦力怕等）+ 雷击伤害（附带 8 秒点燃）。
      * 感电（shocked）的等级镜像攻击者电龙之力的等级（例：3 级电龙之力 → 3 级感电）。
      */
-    private static void hurtWithLightning(Level level, LivingEntity entity, float damage, int amplifier) {
+    private static void hurtWithLightning(
+            Level level,
+            LivingEntity entity,
+            LivingEntity attacker,
+            float damage,
+            int amplifier) {
+        // code
+        // 元素反应：电 + 冰(超导) / 电 + 火(超载)。反应伤害合并进本次电击伤害一次结算，
+        // 避免原版无敌帧吞掉"电击 + 反应"多段叠加的伤害。
+        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier);
+        float totalDamage = damage + (float) reactionDamage;
+
+        // 是否使用原版雷击
         if (DragonBlessingsConfig.USE_VANILLA_LIGHTNING.get()) {
             // 原版雷击电：先雷击伤害（附带点燃），再变体转换。
             // 顺序必须"先伤害后转换"：替换型转换（猪→僵尸猪灵等）会移除旧实体，
             // 若先转换，后续 hurt 落在已移除的旧实体上，闪电伤害就丢失了。
-            entity.hurt(level.damageSources().lightningBolt(), damage);
+            entity.hurt(level.damageSources().lightningBolt(), totalDamage);
 
             applyThunderConversion(level, entity);
         } else {
-            // 魔法电（默认）：只造成魔法伤害，不点燃、不转换
-            entity.hurt(level.damageSources().magic(), damage);
+            // 魔法电（默认）：只造成魔法伤害，不点燃、不转换；伤害归属攻击者（经验/掉落/击杀统计）
+            entity.hurt(level.damageSources().indirectMagic(attacker, null), totalDamage);
 
-            // 小彩蛋（可配置）：魔法电也能把苦力怕变成闪电苦力怕（不走 thunderHit，不附带点燃）
+            // 魔法电也能把苦力怕变成闪电苦力怕（不走 thunderHit，不附带点燃）
             if (DragonBlessingsConfig.MAGIC_CREEPER_CONVERSION.get()) {
-                // 只有苦力怕受伤的世界达成！
                 applyMagicCreeperConversion(entity);
             }
         }
@@ -284,7 +297,8 @@ public class ChainLightningHelper {
     }
 
     /**
-     * 魔法电小彩蛋：只把苦力怕转换成闪电苦力怕，不走原版 thunderHit（避免附带 8 秒点燃）。
+     * 只有苦力怕受伤的世界达成！
+     * 只把苦力怕转换成闪电苦力怕，不走原版 thunderHit（避免附带 8 秒点燃）。
      * 通过 Access Transformer 访问 Creeper 私有的 DATA_IS_POWERED 同步字段直接设置。
      */
     private static void applyMagicCreeperConversion(LivingEntity entity) {
