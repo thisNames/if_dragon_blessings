@@ -42,6 +42,10 @@ public class DragonBlessingsConfig {
     public static final ForgeConfigSpec.IntValue CHAIN_COOLDOWN;
     // 闪电链粒子同步半径（格）
     public static final ForgeConfigSpec.DoubleValue CHAIN_SYNC_DISTANCE;
+    // 电龙攻击是否使用原版雷击机制（变体转换 + 点燃），否则使用魔法电
+    public static final ForgeConfigSpec.BooleanValue USE_VANILLA_LIGHTNING;
+    // 魔法电模式下是否把苦力怕转换成闪电苦力怕（小彩蛋，不带火）
+    public static final ForgeConfigSpec.BooleanValue MAGIC_CREEPER_CONVERSION;
 
     // —— 火龙 / 冰龙攻击 ——
     // 火龙之力 buff 的最大有效等级
@@ -110,6 +114,15 @@ public class DragonBlessingsConfig {
         CHAIN_SYNC_DISTANCE = builder
                 .comment("闪电链粒子效果的同步半径（格）：只向该范围内玩家发送粒子包。建议不小于闪电链搜索半径，否则远处玩家看不到粒子。")
                 .defineInRange("syncDistance", 64.0D, 8.0D, 256.0D);
+
+        USE_VANILLA_LIGHTNING = builder
+                .comment(
+                        "电龙攻击的伤害方式：true = 原版雷击电（附带变体转换与 8 秒点燃；火龙：这样显得我很没面子啊）；false = 魔法电（魔法伤害，不点燃不转换，默认）。")
+                .define("useVanillaLightning", false);
+
+        MAGIC_CREEPER_CONVERSION = builder
+                .comment("魔法电模式下是否把苦力怕转换成闪电苦力怕（只有苦力怕受伤的世界达成！）。true = 转换（默认）；false = 不转换。")
+                .define("magicCreeperConversion", true);
 
         builder.pop();
 

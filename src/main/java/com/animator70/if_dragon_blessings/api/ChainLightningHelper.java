@@ -9,6 +9,9 @@ import com.animator70.if_dragon_blessings.network.ModNetwork;
 // Minecraft 类
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -248,13 +251,58 @@ public class ChainLightningHelper {
     }
 
     /**
-     * 用闪电（雷电）伤害源对实体造成伤害。
+     * 对实体造成电击伤害并施加感电。
+     * 伤害方式由配置 useVanillaLightning 决定：
+     * - false（默认）= 魔法电：魔法伤害，不点燃、不变体转换；
+     * - true = 原版雷击电：变体转换（苦力怕→闪电苦力怕等）+ 雷击伤害（附带 8 秒点燃）。
      * 感电（shocked）的等级镜像攻击者电龙之力的等级（例：3 级电龙之力 → 3 级感电）。
      */
     private static void hurtWithLightning(Level level, LivingEntity entity, float damage, int amplifier) {
-        entity.hurt(level.damageSources().lightningBolt(), damage);
+        if (DragonBlessingsConfig.USE_VANILLA_LIGHTNING.get()) {
+            // 原版雷击电：变体转换 + 雷击伤害（附带点燃）
+            applyThunderConversion(level, entity);
+
+            entity.hurt(level.damageSources().lightningBolt(), damage);
+        } else {
+            // 魔法电（默认）：只造成魔法伤害，不点燃、不转换
+            entity.hurt(level.damageSources().magic(), damage);
+
+            // 小彩蛋（可配置）：魔法电也能把苦力怕变成闪电苦力怕（不走 thunderHit，不附带点燃）
+            if (DragonBlessingsConfig.MAGIC_CREEPER_CONVERSION.get()) {
+                // 只有苦力怕受伤的世界达成！
+                applyMagicCreeperConversion(entity);
+            }
+        }
 
         // 感电定身 3 秒（60 tick）：电龙攻击的核心效果，替代原模组的麻痹
         entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, amplifier));
+    }
+
+    /**
+     * 魔法电小彩蛋：只把苦力怕转换成闪电苦力怕，不走原版 thunderHit（避免附带 8 秒点燃）。
+     * 通过 Access Transformer 访问 Creeper 私有的 DATA_IS_POWERED 同步字段直接设置。
+     */
+    private static void applyMagicCreeperConversion(LivingEntity entity) {
+        if (entity instanceof Creeper creeper && !creeper.isPowered()) {
+            // AT 将私有字段强行变为公有
+            creeper.getEntityData().set(Creeper.DATA_IS_POWERED, true);
+        }
+    }
+
+    /**
+     * 原版雷击变体转换：复用原版 {@link LivingEntity#thunderHit} 逻辑，
+     * 苦力怕→闪电苦力怕、猪→僵尸猪灵、村民→女巫、红色哞菇→棕色哞菇等。
+     * 构造一个「不真正生成」的 LightningBolt 仅用于触发转换。
+     * 注意：原版 thunderHit 会强制 8 秒点燃目标（与伤害类型无关），仅在开启原版雷击电时使用。
+     */
+    private static void applyThunderConversion(Level level, LivingEntity entity) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+
+        LightningBolt bolt = new LightningBolt(EntityType.LIGHTNING_BOLT, serverLevel);
+
+        bolt.moveTo(entity.getX(), entity.getY(), entity.getZ());
+        entity.thunderHit(serverLevel, bolt);
     }
 }
