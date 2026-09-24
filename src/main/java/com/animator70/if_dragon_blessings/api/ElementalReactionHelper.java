@@ -35,8 +35,8 @@ public final class ElementalReactionHelper {
 
     // 反应标记效果持续时长（tick）：仅作视觉标记，2 秒
     private static final int MARKER_DURATION = 40;
-    // 反应基础伤害：单个反应伤害 = 基础 × (等级相乘 × 0.1)。默认 20 → 单反应伤害 2.0（1×1，1 颗心）~ 18.0（3×3，9 颗心）
-    private static final double BASE_DAMAGE = 20.0D;
+    // 反应基础伤害：单个反应伤害 = 基础 × (等级相乘 × 0.1)。默认 10 → 单反应伤害 1.0（1×1，半颗心）~ 9.0（3×3，4.5 颗心）
+    private static final double BASE_DAMAGE = 10.0D;
 
     private ElementalReactionHelper() {
     }
@@ -44,8 +44,11 @@ public final class ElementalReactionHelper {
     /**
      * 冰（frozen）被施加：检查火（→融化）、电（→超导），返回总反应伤害（不含结算）。
      */
-    public static double applyFrozenReactions(LivingEntity target, int iceAmplifier,
+    public static double applyFrozenReactions(
+            LivingEntity target,
+            int iceAmplifier,
             Set<MobEffect> triggeredReactions) {
+        // code
         double total = 0.0D;
         total += react(target, iceAmplifier, ModMobEffects.BLAZE.get(), ModMobEffects.MELT.get(),
                 triggeredReactions);
@@ -57,8 +60,11 @@ public final class ElementalReactionHelper {
     /**
      * 火（blaze）被施加：检查冰（→融化）、电（→超载），返回总反应伤害（不含结算）。
      */
-    public static double applyBlazeReactions(LivingEntity target, int fireAmplifier,
+    public static double applyBlazeReactions(
+            LivingEntity target,
+            int fireAmplifier,
             Set<MobEffect> triggeredReactions) {
+        // code
         double total = 0.0D;
         total += react(target, fireAmplifier, ModMobEffects.FROZEN.get(), ModMobEffects.MELT.get(),
                 triggeredReactions);

@@ -104,8 +104,10 @@ public class AttackHandler {
         // 烈焰标记的等级镜像火龙之力的等级（例：3 级火龙之力 → 3 级烈焰）
         int blazeAmplifier = fireEffect.getAmplifier();
 
-        // 燃烧时间随等级怎加
-        target.setSecondsOnFire((int) Math.round(5 * fireMultiplier));
+        // 燃烧时间随等级增加（冰克制火：目标身上有冰封标记时不点燃）
+        if (!target.hasEffect(ModMobEffects.FROZEN.get())) {
+            target.setSecondsOnFire((int) Math.round(5 * fireMultiplier));
+        }
         // 添加烈焰标记
         target.addEffect(new MobEffectInstance(
                 ModMobEffects.BLAZE.get(),
@@ -138,6 +140,9 @@ public class AttackHandler {
         // 冰封标记的等级镜像冰龙之力的等级（缓慢/挖掘疲劳保持固定 III）
         int frozenAmplifier = iceEffect.getAmplifier();
         int duration = (int) Math.round(200 * iceMultiplier);
+
+        // 冰克制火：直接灭火
+        target.clearFire();
 
         // 添加效果
         target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, frozenAmplifier));
