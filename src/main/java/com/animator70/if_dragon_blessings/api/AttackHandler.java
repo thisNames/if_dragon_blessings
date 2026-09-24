@@ -6,6 +6,7 @@ import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
 import com.animator70.if_dragon_blessings.init.ModMobEffects;
 
 // Minecraft 类
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -13,13 +14,15 @@ import net.minecraft.world.entity.LivingEntity;
 
 // Forge 类
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
-import net.minecraftforge.event.entity.living.LivingAttackEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 // Java 类
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -33,12 +36,16 @@ public class AttackHandler {
     private static final Map<UUID, Long> LAST_TRIGGER_TIME = new HashMap<>();
 
     /**
-     * 攻击事件：判断攻击者是否持有对应攻击方式效果，持有才触发对应攻击。
-     * 「是否有效果」的判断收敛在这里，各攻击方法只负责“打出攻击”，
-     * 因此攻击方式不再与效果强绑定（将来可从物品等其他来源触发）。
+     * 攻击事件（LivingHurtEvent）：在护甲减免后、伤害结算前触发。
+     * 用 LivingHurtEvent 而非 LivingAttackEvent，是为了用 setAmount 把龙之力伤害合并到玩家原本攻击伤害里，
+     * 让两者一次结算、正确叠加（LivingAttackEvent 无 setAmount，嵌套 hurt 会被原版无敌帧吞掉其中一段）。
+     *
+     * 伤害结算统一收敛在这里：三个 calculate 方法只负责「计算伤害 + 施加效果」并返回伤害值，
+     * 由本方法累加后一次性 setAmount 结算；triggeredReactions 跨三个方法去重，
+     * 保证每种元素反应在同一次攻击里只触发一次（避免三效果同时攻击时重复触发）。
      */
     @SubscribeEvent
-    public static void onLivingAttack(LivingAttackEvent event) {
+    public static void onLivingHurt(LivingHurtEvent event) {
         Entity sourceEntity = event.getSource().getEntity();
 
         // 攻击者必须是活体实体
@@ -53,29 +60,43 @@ public class AttackHandler {
         // 获取实体目标
         LivingEntity target = event.getEntity();
 
+        // 本次攻击已触发的元素反应（去重：每种反应只结算一次）
+        Set<MobEffect> triggeredReactions = new HashSet<>();
+        // 龙之力的总额外伤害
+        float extraDamage = 0.0F;
+
         // 火龙：持有火龙之力才打出火龙攻击
         MobEffectInstance fireEffect = attacker.getEffect(ModMobEffects.FIRE_ATTACK.get());
         if (fireEffect != null) {
-            performFireAttack(attacker, target, fireEffect);
+            extraDamage += calculateFireAttack(attacker, target, fireEffect, triggeredReactions);
         }
 
         // 冰龙：持有冰龙之力才打出冰龙攻击
         MobEffectInstance iceEffect = attacker.getEffect(ModMobEffects.ICE_ATTACK.get());
         if (iceEffect != null) {
-            performIceAttack(attacker, target, iceEffect);
+            extraDamage += calculateIceAttack(target, iceEffect, triggeredReactions);
         }
 
         // 电龙：持有电龙之力才打出电龙攻击
         MobEffectInstance lightningEffect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
         if (lightningEffect != null) {
-            performLightningAttack(attacker, target, lightningEffect);
+            extraDamage += calculateLightningAttack(attacker, target, lightningEffect, triggeredReactions);
         }
+
+        // 统一结算：玩家原本伤害 + 所有龙之力伤害
+        event.setAmount(event.getAmount() + extraDamage);
     }
 
     /**
      * 【火龙】打出火龙攻击：点燃 + 烈焰标记 + 击退（等级越高持续越久、击退越强）
+     * 返回元素反应伤害（不结算，由 onLivingHurt 统一累加）。
      */
-    private static void performFireAttack(LivingEntity attacker, LivingEntity target, MobEffectInstance fireEffect) {
+    private static float calculateFireAttack(
+            LivingEntity attacker,
+            LivingEntity target,
+            MobEffectInstance fireEffect,
+            Set<MobEffect> triggeredReactions) {
+        // fire attack code
         double fireMultiplier = AttackMultipliers.of(
                 fireEffect.getAmplifier(),
                 DragonBlessingsConfig.FIRE_ATTACK_MAX_LEVEL.get());
@@ -90,21 +111,26 @@ public class AttackHandler {
                 ModMobEffects.BLAZE.get(),
                 (int) Math.round(100 * fireMultiplier), blazeAmplifier));
 
-        // 元素反应：火 + 冰(融化) / 火 + 电(超载)，合并成一次伤害结算（避免无敌帧吞叠加）
-        double reactionDamage = ElementalReactionHelper.applyBlazeReactions(target, fireEffect.getAmplifier());
-        if (reactionDamage > 0.0D) {
-            target.hurt(target.level().damageSources().indirectMagic(attacker, null), (float) reactionDamage);
-        }
+        // 元素反应：火 + 冰(融化) / 火 + 电(超载)，返回反应伤害（不结算）
+        double reactionDamage = ElementalReactionHelper.applyBlazeReactions(target, fireEffect.getAmplifier(),
+                triggeredReactions);
 
         // 击退
         knockback(target, attacker, (float) fireMultiplier);
+
+        return (float) reactionDamage;
     }
 
     /**
      * 【冰龙】打出冰龙攻击：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒，等级越高持续越久）
      * 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
+     * 返回元素反应伤害（不结算，由 onLivingHurt 统一累加）。
      */
-    private static void performIceAttack(LivingEntity attacker, LivingEntity target, MobEffectInstance iceEffect) {
+    private static float calculateIceAttack(
+            LivingEntity target,
+            MobEffectInstance iceEffect,
+            Set<MobEffect> triggeredReactions) {
+        // ice attack code
         double iceMultiplier = AttackMultipliers.of(
                 iceEffect.getAmplifier(),
                 DragonBlessingsConfig.ICE_ATTACK_MAX_LEVEL.get());
@@ -118,20 +144,22 @@ public class AttackHandler {
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
         target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
 
-        // 元素反应：冰 + 火(融化) / 冰 + 电(超导)，合并成一次伤害结算（避免无敌帧吞叠加）
-        double reactionDamage = ElementalReactionHelper.applyFrozenReactions(target, iceEffect.getAmplifier());
-        if (reactionDamage > 0.0D) {
-            target.hurt(target.level().damageSources().indirectMagic(attacker, null), (float) reactionDamage);
-        }
+        // 元素反应：冰 + 火(融化) / 冰 + 电(超导)，返回反应伤害（不结算）
+        double reactionDamage = ElementalReactionHelper.applyFrozenReactions(target, iceEffect.getAmplifier(),
+                triggeredReactions);
+
+        return (float) reactionDamage;
     }
 
     /**
      * 【电龙】打出电龙攻击：闪电链（带冷却，防止手速过快导致鬼畜）
+     * 返回中心目标伤害（不结算，由 onLivingHurt 统一累加）。
      */
-    private static void performLightningAttack(
+    private static float calculateLightningAttack(
             LivingEntity attacker,
             LivingEntity target,
-            MobEffectInstance lightningEffect) {
+            MobEffectInstance lightningEffect,
+            Set<MobEffect> triggeredReactions) {
         // lightning attack code
         long now = attacker.level().getGameTime();
         long cooldown = DragonBlessingsConfig.CHAIN_COOLDOWN.get();
@@ -141,13 +169,16 @@ public class AttackHandler {
         if (lastTrigger == null || now - lastTrigger >= cooldown) {
             LAST_TRIGGER_TIME.put(attacker.getUUID(), now);
 
-            // 创建闪电链效果
-            ChainLightningHelper.createChainLightning(
+            // 中心目标伤害由 createChainLightning 返回，由 onLivingHurt 统一结算
+            return ChainLightningHelper.createChainLightning(
                     attacker.level(),
                     target,
                     attacker,
-                    lightningEffect.getAmplifier());
+                    lightningEffect.getAmplifier(),
+                    triggeredReactions);
         }
+
+        return 0.0F;
     }
 
     /**

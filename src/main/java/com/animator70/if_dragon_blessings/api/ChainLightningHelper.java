@@ -8,6 +8,7 @@ import com.animator70.if_dragon_blessings.network.ModNetwork;
 
 // Minecraft 类
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
@@ -50,10 +51,15 @@ public class ChainLightningHelper {
      * @param attacker  攻击者（拥有电龙之力效果的实体）
      * @param amplifier 攻击者电龙之力 buff 的等级，用于增强伤害并镜像为感电的等级
      */
-    public static void createChainLightning(Level level, LivingEntity target, LivingEntity attacker, int amplifier) {
+    public static float createChainLightning(
+            Level level,
+            LivingEntity target,
+            LivingEntity attacker,
+            int amplifier,
+            Set<MobEffect> triggeredReactions) {
         // 目标已死或无敌则直接返回
         if (target.isDeadOrDying() || target.isInvulnerable()) {
-            return;
+            return 0.0F;
         }
 
         // —— 从配置读取参数 ——
@@ -88,16 +94,17 @@ public class ChainLightningHelper {
         chain.add(target);
         visited.add(target);
 
-        // 目标受到电链攻击（首个被击中实体）
-        hurtWithLightning(level, target, attacker, centerDamage, amplifier);
+        // 中心目标：计算伤害 + 施加感电/变体转换，但不结算伤害（伤害由调用方合并到玩家攻击里，避免无敌帧吞叠加）
+        float centerTotal = centerLightning(level, target, amplifier, centerDamage, triggeredReactions);
 
         // 被攻击到的身上播放雷声
         target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
 
+        // ------ 后面的都是被链目标，属于独立的 hurt 逻辑 ------
         // 以中心为球心、range 为半径的包围盒内查找可被链到的目标
         AABB box = target.getBoundingBox().inflate(range);
 
-        // PVP 是否允许（读取服务器 server.properties 的 pvp 设置）
+        // PVP 是否允许（读取服务器 server.properties 的 pvp 设置）+感电
         boolean pvpAllowed = level instanceof ServerLevel serverLevel && serverLevel.getServer().isPvpAllowed();
 
         // 查找所有可被链到的目标
@@ -120,7 +127,7 @@ public class ChainLightningHelper {
             hurtWithLightning(level, chained, attacker, damage, amplifier);
         }
 
-        // 仅在服务端发送包（客户端由包处理器生成闪电链粒子）
+        // ------ 仅在服务端发送包（客户端由包处理器生成闪电链粒子）------
         // 发送坐标而非实体 ID：实体可能已被转换/移除，坐标不受影响，闪电视觉不会丢失
         if (!level.isClientSide && chain.size() >= 2 && level instanceof ServerLevel serverLevel) {
             List<Vec3> positions = new ArrayList<>();
@@ -129,8 +136,12 @@ public class ChainLightningHelper {
                 positions.add(e.position().add(0.0D, e.getBbHeight() / 2.0D, 0.0D));
             }
 
+            // 发送
             ModNetwork.sendChainLightning(serverLevel, target.blockPosition(), positions);
         }
+
+        // 是返回中心伤害，因为电链属于独立的伤害，不与玩家攻击里的伤害合并
+        return centerTotal;
     }
 
     /**
@@ -261,6 +272,32 @@ public class ChainLightningHelper {
      * - false（默认）= 魔法电：魔法伤害，不点燃、不变体转换；
      * - true = 原版雷击电：变体转换（苦力怕→闪电苦力怕等）+ 雷击伤害（附带 8 秒点燃）。
      * 感电（shocked）的等级镜像攻击者电龙之力的等级（例：3 级电龙之力 → 3 级感电）。
+     * 
+     * 中心目标：计算电击 + 元素反应的总伤害，并施加感电与变体转换，但不结算伤害。
+     * 伤害由调用方合并到玩家攻击伤害里一次结算，避免原版无敌帧吞掉叠加伤害。
+     * 注意：原版雷击模式下替换型转换（猪→僵尸猪灵）会移除旧实体，此处的转换先于外层伤害结算，
+     * 属可选功能（默认关闭）的已知边界；默认魔法电的苦力怕转换是原地改标志，不受影响。
+     */
+    private static float centerLightning(
+            Level level,
+            LivingEntity entity,
+            int amplifier,
+            float damage,
+            Set<MobEffect> triggeredReactions) {
+        // code
+        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier, triggeredReactions);
+        float totalDamage = damage + (float) reactionDamage;
+
+        // 添加感电标记
+        entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, amplifier));
+        // 实体转换
+        applyConversion(level, entity);
+
+        return totalDamage;
+    }
+
+    /**
+     * 被链目标：结算电击伤害并施加感电与变体转换（先伤害后转换，替换型转换不丢伤害）。
      */
     private static void hurtWithLightning(
             Level level,
@@ -268,32 +305,36 @@ public class ChainLightningHelper {
             LivingEntity attacker,
             float damage,
             int amplifier) {
-        // code
         // 元素反应：电 + 冰(超导) / 电 + 火(超载)。反应伤害合并进本次电击伤害一次结算，
         // 避免原版无敌帧吞掉"电击 + 反应"多段叠加的伤害。
-        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier);
+        // 被链目标用独立去重集合（每个被链目标只有电龙检测，实际不会重复，仅为接口统一）
+        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier, new HashSet<>());
         float totalDamage = damage + (float) reactionDamage;
 
         // 是否使用原版雷击
         if (DragonBlessingsConfig.USE_VANILLA_LIGHTNING.get()) {
-            // 原版雷击电：先雷击伤害（附带点燃），再变体转换。
-            // 顺序必须"先伤害后转换"：替换型转换（猪→僵尸猪灵等）会移除旧实体，
-            // 若先转换，后续 hurt 落在已移除的旧实体上，闪电伤害就丢失了。
             entity.hurt(level.damageSources().lightningBolt(), totalDamage);
-
-            applyThunderConversion(level, entity);
         } else {
-            // 魔法电（默认）：只造成魔法伤害，不点燃、不转换；伤害归属攻击者（经验/掉落/击杀统计）
             entity.hurt(level.damageSources().indirectMagic(attacker, null), totalDamage);
-
-            // 魔法电也能把苦力怕变成闪电苦力怕（不走 thunderHit，不附带点燃）
-            if (DragonBlessingsConfig.MAGIC_CREEPER_CONVERSION.get()) {
-                applyMagicCreeperConversion(entity);
-            }
         }
 
         // 感电定身 3 秒（60 tick）：电龙攻击的核心效果，替代原模组的麻痹
         entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, amplifier));
+        // 转换
+        applyConversion(level, entity);
+    }
+
+    /**
+     * 变体转换：默认魔法电只把苦力怕转闪电苦力怕；原版雷击电走 thunderHit（猪→僵尸猪灵等）。
+     */
+    private static void applyConversion(Level level, LivingEntity entity) {
+        if (DragonBlessingsConfig.USE_VANILLA_LIGHTNING.get()) {
+            // 原版雷击转换
+            applyThunderConversion(level, entity);
+        } else if (DragonBlessingsConfig.MAGIC_CREEPER_CONVERSION.get()) {
+            // 魔法电转换苦力怕
+            applyMagicCreeperConversion(entity);
+        }
     }
 
     /**
