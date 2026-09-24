@@ -3,6 +3,7 @@ package com.animator70.if_dragon_blessings.api;
 // 我的类
 import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
 import com.animator70.if_dragon_blessings.init.ModMobEffects;
+import com.animator70.if_dragon_blessings.init.ModSounds;
 
 // Minecraft 类
 import net.minecraft.core.particles.DustParticleOptions;
@@ -183,7 +184,7 @@ public final class ElementalReactionHelper {
             serverLevel.sendParticles(ParticleTypes.CLOUD, x, y, z, 8, 0.5D, 0.5D, 0.5D, 0.1D);
             serverLevel.sendParticles(ParticleTypes.FLAME, x, y, z, 6, 0.4D, 0.4D, 0.4D, 0.1D);
 
-            target.playSound(SoundEvents.GENERIC_EXTINGUISH_FIRE, 0.7F, 1.0F);
+            target.playSound(SoundEvents.GENERIC_EXTINGUISH_FIRE, 0.12F, 1.1F);
         } else if (reactionMarker == ModMobEffects.SUPERCONDUCT.get()) {
             // 超导（冰+电）：亮紫色粒子 + 大冰晶
             serverLevel.sendParticles(new DustParticleOptions(
@@ -192,13 +193,13 @@ public final class ElementalReactionHelper {
             serverLevel.sendParticles(new DustParticleOptions(
                     new Vector3f(0.8F, 0.9F, 1.0F), 3.5F), x, y, z, 10, 1.0D, 1.0D, 1.0D, 0.15D);
 
-            // target.playSound(ModSounds.SUPERCONDUCT.get(), 0.4F, 1.0F);
+            target.playSound(ModSounds.SUPERCONDUCT.get(), 0.12F, 1.3F);
         } else if (reactionMarker == ModMobEffects.OVERLOAD.get()) {
             // 超载（火+电）：爆炸（改小）+ 火焰（加量）
             serverLevel.sendParticles(ParticleTypes.EXPLOSION, x, y, z, 4, 0.3D, 0.3D, 0.3D, 0.1D);
             serverLevel.sendParticles(ParticleTypes.FLAME, x, y, z, 14, 0.5D, 0.5D, 0.5D, 0.2D);
 
-            target.playSound(SoundEvents.GENERIC_EXPLODE, 0.7F, 1.0F);
+            target.playSound(SoundEvents.GENERIC_EXPLODE, 0.35F, 0.95F);
         }
     }
 }
