@@ -8,7 +8,6 @@ import com.animator70.if_dragon_blessings.network.ModNetwork;
 
 // Minecraft 类
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
@@ -55,8 +54,7 @@ public class ChainLightningHelper {
             Level level,
             LivingEntity target,
             LivingEntity attacker,
-            int amplifier,
-            Set<MobEffect> triggeredReactions) {
+            int amplifier) {
         // 目标已死或无敌则直接返回
         if (target.isDeadOrDying() || target.isInvulnerable()) {
             return 0.0F;
@@ -95,7 +93,7 @@ public class ChainLightningHelper {
         visited.add(target);
 
         // 中心目标：计算伤害 + 施加感电/变体转换，但不结算伤害（伤害由调用方合并到玩家攻击里，避免无敌帧吞叠加）
-        float centerTotal = centerLightning(level, target, amplifier, centerDamage, triggeredReactions);
+        float centerTotal = centerLightning(level, target, amplifier, centerDamage);
 
         // 被攻击到的身上播放雷声
         target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
@@ -267,14 +265,9 @@ public class ChainLightningHelper {
     }
 
     /**
-     * 对实体造成电击伤害并施加感电。
-     * 伤害方式由配置 useVanillaLightning 决定：
-     * - false（默认）= 魔法电：魔法伤害，不点燃、不变体转换；
-     * - true = 原版雷击电：变体转换（苦力怕→闪电苦力怕等）+ 雷击伤害（附带 8 秒点燃）。
-     * 感电（shocked）的等级镜像攻击者电龙之力的等级（例：3 级电龙之力 → 3 级感电）。
-     * 
      * 中心目标：计算电击 + 元素反应的总伤害，并施加感电与变体转换，但不结算伤害。
      * 伤害由调用方合并到玩家攻击伤害里一次结算，避免原版无敌帧吞掉叠加伤害。
+     * 由于不在此处用 lightningBolt() 伤害源结算，中心目标不会被原版雷击附带点燃（8 秒点燃只发生在被链目标上）。
      * 注意：原版雷击模式下替换型转换（猪→僵尸猪灵）会移除旧实体，此处的转换先于外层伤害结算，
      * 属可选功能（默认关闭）的已知边界；默认魔法电的苦力怕转换是原地改标志，不受影响。
      */
@@ -282,15 +275,15 @@ public class ChainLightningHelper {
             Level level,
             LivingEntity entity,
             int amplifier,
-            float damage,
-            Set<MobEffect> triggeredReactions) {
+            float damage) {
         // code
-        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier, triggeredReactions);
+        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier);
         float totalDamage = damage + (float) reactionDamage;
 
         // 添加感电标记
         entity.addEffect(
-                new MobEffectInstance(ModMobEffects.SHOCKED.get(), ElementalReactionHelper.MARKER_DURATION, amplifier));
+                new MobEffectInstance(ModMobEffects.SHOCKED.get(), ElementalReactionHelper.ELEMENT_MARKER_DURATION,
+                        amplifier));
         // 实体转换
         applyConversion(level, entity);
 
@@ -308,8 +301,7 @@ public class ChainLightningHelper {
             int amplifier) {
         // 元素反应：电 + 冰(超导) / 电 + 火(超载)。反应伤害合并进本次电击伤害一次结算，
         // 避免原版无敌帧吞掉"电击 + 反应"多段叠加的伤害。
-        // 被链目标用独立去重集合（每个被链目标只有电龙检测，实际不会重复，仅为接口统一）
-        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier, new HashSet<>());
+        double reactionDamage = ElementalReactionHelper.applyShockedReactions(entity, amplifier);
         float totalDamage = damage + (float) reactionDamage;
 
         // 是否使用原版雷击
@@ -322,7 +314,7 @@ public class ChainLightningHelper {
         // 感电定身
         entity.addEffect(new MobEffectInstance(
                 ModMobEffects.SHOCKED.get(),
-                ElementalReactionHelper.MARKER_DURATION,
+                ElementalReactionHelper.ELEMENT_MARKER_DURATION,
                 amplifier));
 
         // 转换
@@ -344,8 +336,8 @@ public class ChainLightningHelper {
 
     /**
      * 只有苦力怕受伤的世界达成！
-     * 只把苦力怕转换成闪电苦力怕，不走原版 thunderHit（避免附带 8 秒点燃）。
-     * 通过 Access Transformer 访问 Creeper 私有的 DATA_IS_POWERED 同步字段直接设置。
+     * 只把苦力怕转换成闪电苦力怕：通过 Access Transformer 直接设置 DATA_IS_POWERED 同步字段，
+     * 不走原版 thunderHit（魔法电模式无需雷击转换的其他变体，也不涉及点燃）。
      */
     private static void applyMagicCreeperConversion(LivingEntity entity) {
         if (entity instanceof Creeper creeper && !creeper.isPowered()) {
@@ -358,7 +350,8 @@ public class ChainLightningHelper {
      * 原版雷击变体转换：复用原版 {@link LivingEntity#thunderHit} 逻辑，
      * 苦力怕→闪电苦力怕、猪→僵尸猪灵、村民→女巫、红色哞菇→棕色哞菇等。
      * 构造一个「不真正生成」的 LightningBolt 仅用于触发转换。
-     * 注意：原版 thunderHit 会强制 8 秒点燃目标（与伤害类型无关），仅在开启原版雷击电时使用。
+     * 注意：thunderHit 本身只做变体转换、不点燃；8 秒点燃来自 lightningBolt() 伤害源，
+     * 仅在原版雷击电下对被链目标用该伤害源结算时发生。
      */
     private static void applyThunderConversion(Level level, LivingEntity entity) {
         if (!(level instanceof ServerLevel serverLevel)) {

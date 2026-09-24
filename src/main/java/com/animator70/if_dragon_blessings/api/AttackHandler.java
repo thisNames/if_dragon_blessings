@@ -6,7 +6,6 @@ import com.animator70.if_dragon_blessings.config.DragonBlessingsConfig;
 import com.animator70.if_dragon_blessings.init.ModMobEffects;
 
 // Minecraft 类
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -20,9 +19,7 @@ import net.minecraftforge.fml.common.Mod;
 
 // Java 类
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -41,8 +38,7 @@ public class AttackHandler {
      * 让两者一次结算、正确叠加（LivingAttackEvent 无 setAmount，嵌套 hurt 会被原版无敌帧吞掉其中一段）。
      *
      * 伤害结算统一收敛在这里：三个 calculate 方法只负责「计算伤害 + 施加效果」并返回伤害值，
-     * 由本方法累加后一次性 setAmount 结算；triggeredReactions 跨三个方法去重，
-     * 保证每种元素反应在同一次攻击里只触发一次（避免三效果同时攻击时重复触发）。
+     * 由本方法累加后一次性 setAmount 结算。元素反应的去重/冷却由反应标记自身（hasEffect）保证。
      */
     @SubscribeEvent
     public static void onLivingHurt(LivingHurtEvent event) {
@@ -60,27 +56,25 @@ public class AttackHandler {
         // 获取实体目标
         LivingEntity target = event.getEntity();
 
-        // 本次攻击已触发的元素反应（去重：每种反应只结算一次）
-        Set<MobEffect> triggeredReactions = new HashSet<>();
         // 龙之力的总额外伤害
         float extraDamage = 0.0F;
 
         // 火龙：持有火龙之力才打出火龙攻击
         MobEffectInstance fireEffect = attacker.getEffect(ModMobEffects.FIRE_ATTACK.get());
         if (fireEffect != null) {
-            extraDamage += calculateFireAttack(attacker, target, fireEffect, triggeredReactions);
+            extraDamage += calculateFireAttack(attacker, target, fireEffect);
         }
 
         // 冰龙：持有冰龙之力才打出冰龙攻击
         MobEffectInstance iceEffect = attacker.getEffect(ModMobEffects.ICE_ATTACK.get());
         if (iceEffect != null) {
-            extraDamage += calculateIceAttack(target, iceEffect, triggeredReactions);
+            extraDamage += calculateIceAttack(target, iceEffect);
         }
 
         // 电龙：持有电龙之力才打出电龙攻击
         MobEffectInstance lightningEffect = attacker.getEffect(ModMobEffects.LIGHTNING_ATTACK.get());
         if (lightningEffect != null) {
-            extraDamage += calculateLightningAttack(attacker, target, lightningEffect, triggeredReactions);
+            extraDamage += calculateLightningAttack(attacker, target, lightningEffect);
         }
 
         // 统一结算：玩家原本伤害 + 所有龙之力伤害
@@ -94,8 +88,7 @@ public class AttackHandler {
     private static float calculateFireAttack(
             LivingEntity attacker,
             LivingEntity target,
-            MobEffectInstance fireEffect,
-            Set<MobEffect> triggeredReactions) {
+            MobEffectInstance fireEffect) {
         // fire attack code
         double fireMultiplier = AttackMultipliers.of(
                 fireEffect.getAmplifier(),
@@ -111,11 +104,10 @@ public class AttackHandler {
         // 添加烈焰标记
         target.addEffect(new MobEffectInstance(
                 ModMobEffects.BLAZE.get(),
-                ElementalReactionHelper.MARKER_DURATION, blazeAmplifier));
+                ElementalReactionHelper.ELEMENT_MARKER_DURATION, blazeAmplifier));
 
         // 元素反应：火 + 冰(融化) / 火 + 电(超载)，返回反应伤害（不结算）
-        double reactionDamage = ElementalReactionHelper.applyBlazeReactions(target, fireEffect.getAmplifier(),
-                triggeredReactions);
+        double reactionDamage = ElementalReactionHelper.applyBlazeReactions(target, fireEffect.getAmplifier());
 
         // 击退
         knockback(target, attacker, (float) fireMultiplier);
@@ -130,8 +122,7 @@ public class AttackHandler {
      */
     private static float calculateIceAttack(
             LivingEntity target,
-            MobEffectInstance iceEffect,
-            Set<MobEffect> triggeredReactions) {
+            MobEffectInstance iceEffect) {
         // ice attack code
         double iceMultiplier = AttackMultipliers.of(
                 iceEffect.getAmplifier(),
@@ -145,14 +136,16 @@ public class AttackHandler {
         target.clearFire();
 
         // 添加效果
-        target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), ElementalReactionHelper.MARKER_DURATION,
+        target.addEffect(new MobEffectInstance(
+                ModMobEffects.FROZEN.get(),
+                ElementalReactionHelper.ELEMENT_MARKER_DURATION,
                 frozenAmplifier));
+
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
         target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
 
         // 元素反应：冰 + 火(融化) / 冰 + 电(超导)，返回反应伤害（不结算）
-        double reactionDamage = ElementalReactionHelper.applyFrozenReactions(target, iceEffect.getAmplifier(),
-                triggeredReactions);
+        double reactionDamage = ElementalReactionHelper.applyFrozenReactions(target, iceEffect.getAmplifier());
 
         return (float) reactionDamage;
     }
@@ -164,8 +157,7 @@ public class AttackHandler {
     private static float calculateLightningAttack(
             LivingEntity attacker,
             LivingEntity target,
-            MobEffectInstance lightningEffect,
-            Set<MobEffect> triggeredReactions) {
+            MobEffectInstance lightningEffect) {
         // lightning attack code
         long now = attacker.level().getGameTime();
         long cooldown = DragonBlessingsConfig.CHAIN_COOLDOWN.get();
@@ -180,8 +172,7 @@ public class AttackHandler {
                     attacker.level(),
                     target,
                     attacker,
-                    lightningEffect.getAmplifier(),
-                    triggeredReactions);
+                    lightningEffect.getAmplifier());
         }
 
         return 0.0F;

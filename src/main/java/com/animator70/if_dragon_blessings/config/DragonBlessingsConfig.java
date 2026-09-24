@@ -121,7 +121,7 @@ public class DragonBlessingsConfig {
 
         USE_VANILLA_LIGHTNING = builder
                 .comment(
-                        "电龙攻击的伤害方式：true = 原版雷击电（附带变体转换与 8 秒点燃；火龙：这样显得我很没面子啊）；false = 魔法电（魔法伤害，不点燃不转换，默认）。")
+                        "电龙攻击的伤害方式：true = 原版雷击电；false = 魔法电（魔法伤害，不点燃不转换，默认）。")
                 .define("useVanillaLightning", false);
 
         MAGIC_CREEPER_CONVERSION = builder

@@ -8,5 +8,11 @@
             "if_dragon_blessings:lightning_strike_3",
             "if_dragon_blessings:lightning_strike_4"
         ]
+    },
+    "superconduct": {
+        "category": "neutral",
+        "sounds": [
+            "if_dragon_blessings:superconduct_0"
+        ]
     }
 }

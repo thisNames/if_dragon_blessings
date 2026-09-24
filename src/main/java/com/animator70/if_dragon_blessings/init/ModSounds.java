@@ -17,6 +17,7 @@ import net.minecraftforge.registries.RegistryObject;
  * ModSounds
  */
 public class ModSounds {
+    // 注册模组音频 ID
     public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(
             ForgeRegistries.SOUND_EVENTS,
             IfDragonBlessings.MODID);
@@ -27,4 +28,11 @@ public class ModSounds {
             "lightning_strike",
             () -> SoundEvent.createVariableRangeEvent(
                     new ResourceLocation(IfDragonBlessings.MODID, "lightning_strike")));
+
+    // 【元素反应】超导音效（三个音频随机播放）
+    @SuppressWarnings("removal")
+    public static final RegistryObject<SoundEvent> SUPERCONDUCT = SOUND_EVENTS.register(
+            "superconduct",
+            () -> SoundEvent.createVariableRangeEvent(
+                    new ResourceLocation(IfDragonBlessings.MODID, "superconduct")));
 }
