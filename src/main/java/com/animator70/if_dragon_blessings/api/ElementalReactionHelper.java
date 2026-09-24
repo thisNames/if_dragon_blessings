@@ -32,9 +32,8 @@ import java.util.Set;
  * 避免原版无敌帧吞掉同一 tick 内的多段叠加伤害。伤害归属由调用方用 indirectMagic(attacker, null) 决定。
  */
 public final class ElementalReactionHelper {
-
-    // 反应标记效果持续时长（tick）：仅作视觉标记，2 秒
-    private static final int MARKER_DURATION = 40;
+    // 所有标记的统一持续时长（tick）：涵盖元素标记（冰封/烈焰/感电）与反应标记（融化/超导/超载）。
+    public static final int MARKER_DURATION = 60;
     // 反应基础伤害：单个反应伤害 = 基础 × (等级相乘 × 0.1)。默认 10 → 单反应伤害 1.0（1×1，半颗心）~ 9.0（3×3，4.5 颗心）
     private static final double BASE_DAMAGE = 10.0D;
 

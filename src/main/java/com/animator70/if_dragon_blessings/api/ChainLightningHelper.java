@@ -289,7 +289,8 @@ public class ChainLightningHelper {
         float totalDamage = damage + (float) reactionDamage;
 
         // 添加感电标记
-        entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, amplifier));
+        entity.addEffect(
+                new MobEffectInstance(ModMobEffects.SHOCKED.get(), ElementalReactionHelper.MARKER_DURATION, amplifier));
         // 实体转换
         applyConversion(level, entity);
 
@@ -318,8 +319,12 @@ public class ChainLightningHelper {
             entity.hurt(level.damageSources().indirectMagic(attacker, null), totalDamage);
         }
 
-        // 感电定身 3 秒（60 tick）：电龙攻击的核心效果，替代原模组的麻痹
-        entity.addEffect(new MobEffectInstance(ModMobEffects.SHOCKED.get(), 60, amplifier));
+        // 感电定身
+        entity.addEffect(new MobEffectInstance(
+                ModMobEffects.SHOCKED.get(),
+                ElementalReactionHelper.MARKER_DURATION,
+                amplifier));
+
         // 转换
         applyConversion(level, entity);
     }

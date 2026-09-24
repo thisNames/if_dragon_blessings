@@ -111,7 +111,7 @@ public class AttackHandler {
         // 添加烈焰标记
         target.addEffect(new MobEffectInstance(
                 ModMobEffects.BLAZE.get(),
-                (int) Math.round(100 * fireMultiplier), blazeAmplifier));
+                ElementalReactionHelper.MARKER_DURATION, blazeAmplifier));
 
         // 元素反应：火 + 冰(融化) / 火 + 电(超载)，返回反应伤害（不结算）
         double reactionDamage = ElementalReactionHelper.applyBlazeReactions(target, fireEffect.getAmplifier(),
@@ -124,7 +124,7 @@ public class AttackHandler {
     }
 
     /**
-     * 【冰龙】打出冰龙攻击：冰封 + 缓慢 III + 挖掘疲劳 III（持续 10 秒，等级越高持续越久）
+     * 【冰龙】打出冰龙攻击：冰封标记（固定 2 秒）+ 缓慢 III + 挖掘疲劳 III（随等级持续）
      * 冰块渲染由 FrozenEvents 监听 MobEffectEvent 自动同步（任何方式施加 FROZEN 效果都生效）
      * 返回元素反应伤害（不结算，由 onLivingHurt 统一累加）。
      */
@@ -145,7 +145,8 @@ public class AttackHandler {
         target.clearFire();
 
         // 添加效果
-        target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), duration, frozenAmplifier));
+        target.addEffect(new MobEffectInstance(ModMobEffects.FROZEN.get(), ElementalReactionHelper.MARKER_DURATION,
+                frozenAmplifier));
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
         target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, duration, 2));
 
