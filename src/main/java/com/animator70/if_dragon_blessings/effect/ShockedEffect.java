@@ -12,7 +12,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class ShockedEffect extends MobEffect {
     public ShockedEffect() {
-        super(MobEffectCategory.HARMFUL, 0xE5C100);
+        super(MobEffectCategory.HARMFUL, 0xFFDC2E);
     }
 
     @Override

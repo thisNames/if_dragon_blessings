@@ -11,6 +11,6 @@ import net.minecraft.world.effect.MobEffectCategory;
 public class BlazeEffect extends MobEffect {
 
     public BlazeEffect() {
-        super(MobEffectCategory.HARMFUL, 0xFF6A00);
+        super(MobEffectCategory.HARMFUL, 0xFFCB2E);
     }
 }

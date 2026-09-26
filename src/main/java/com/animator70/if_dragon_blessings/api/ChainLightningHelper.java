@@ -96,7 +96,7 @@ public class ChainLightningHelper {
         float centerTotal = centerLightning(level, target, amplifier, centerDamage);
 
         // 被攻击到的身上播放雷声
-        target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 0.6F, 0.85F);
+        target.playSound(ModSounds.LIGHTNING_STRIKE.get(), 1.0F, 1.0F);
 
         // ------ 后面的都是被链目标，属于独立的 hurt 逻辑 ------
         // 以中心为球心、range 为半径的包围盒内查找可被链到的目标

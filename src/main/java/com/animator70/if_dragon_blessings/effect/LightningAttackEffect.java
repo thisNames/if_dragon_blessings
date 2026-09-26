@@ -9,6 +9,6 @@ import net.minecraft.world.effect.MobEffectCategory;
  */
 public class LightningAttackEffect extends MobEffect {
     public LightningAttackEffect() {
-        super(MobEffectCategory.BENEFICIAL, 0xA929EE);
+        super(MobEffectCategory.BENEFICIAL, 0xF48DEB);
     }
 }

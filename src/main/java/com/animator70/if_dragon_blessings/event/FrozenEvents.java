@@ -101,7 +101,7 @@ public class FrozenEvents {
      */
     private static void spawnBreakEffects(LivingEntity entity) {
         // 原版玻璃碎裂音效（碎冰）
-        entity.playSound(SoundEvents.GLASS_BREAK, 1.0F, 1.2F);
+        entity.playSound(SoundEvents.GLASS_BREAK, 1.0F, 1.0F);
 
         // 原版方块碎裂粒子 + 冰块，在实体周围生成 8 粒
         if (entity.level() instanceof ServerLevel serverLevel) {

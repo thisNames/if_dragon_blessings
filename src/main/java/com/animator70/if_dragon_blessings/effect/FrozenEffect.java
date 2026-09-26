@@ -11,6 +11,6 @@ import net.minecraft.world.effect.MobEffectCategory;
 public class FrozenEffect extends MobEffect {
 
     public FrozenEffect() {
-        super(MobEffectCategory.HARMFUL, 0x7FC7FF);
+        super(MobEffectCategory.HARMFUL, 0x00D7FF);
     }
 }

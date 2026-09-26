@@ -10,6 +10,6 @@ import net.minecraft.world.effect.MobEffectCategory;
  */
 public class OverloadEffect extends MobEffect {
     public OverloadEffect() {
-        super(MobEffectCategory.HARMFUL, 0xFF8C3A);
+        super(MobEffectCategory.HARMFUL, 0xFFA974);
     }
 }

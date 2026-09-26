@@ -10,6 +10,6 @@ import net.minecraft.world.effect.MobEffectCategory;
  */
 public class MeltEffect extends MobEffect {
     public MeltEffect() {
-        super(MobEffectCategory.HARMFUL, 0x7FD8FF);
+        super(MobEffectCategory.HARMFUL, 0x90F5FF);
     }
 }

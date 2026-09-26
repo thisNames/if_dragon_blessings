@@ -10,6 +10,6 @@ import net.minecraft.world.effect.MobEffectCategory;
  */
 public class SuperconductEffect extends MobEffect {
     public SuperconductEffect() {
-        super(MobEffectCategory.HARMFUL, 0xA78BFF);
+        super(MobEffectCategory.HARMFUL, 0xDA6EC4);
     }
 }

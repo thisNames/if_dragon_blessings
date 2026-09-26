@@ -9,6 +9,6 @@ import net.minecraft.world.effect.MobEffectCategory;
  */
 public class IceAttackEffect extends MobEffect {
     public IceAttackEffect() {
-        super(MobEffectCategory.BENEFICIAL, 0x7FC7FF);
+        super(MobEffectCategory.BENEFICIAL, 0x5AC4D8);
     }
 }

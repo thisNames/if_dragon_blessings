@@ -9,6 +9,6 @@ import net.minecraft.world.effect.MobEffectCategory;
  */
 public class FireAttackEffect extends MobEffect {
     public FireAttackEffect() {
-        super(MobEffectCategory.BENEFICIAL, 0xFF6A00);
+        super(MobEffectCategory.BENEFICIAL, 0xFE850A);
     }
 }

@@ -184,7 +184,7 @@ public final class ElementalReactionHelper {
             serverLevel.sendParticles(ParticleTypes.CLOUD, x, y, z, 8, 0.5D, 0.5D, 0.5D, 0.1D);
             serverLevel.sendParticles(ParticleTypes.FLAME, x, y, z, 6, 0.4D, 0.4D, 0.4D, 0.1D);
 
-            target.playSound(SoundEvents.GENERIC_EXTINGUISH_FIRE, 0.12F, 1.1F);
+            target.playSound(SoundEvents.GENERIC_EXTINGUISH_FIRE, 0.6F, 1.0F);
         } else if (reactionMarker == ModMobEffects.SUPERCONDUCT.get()) {
             // 超导（冰+电）：亮紫色粒子 + 大冰晶
             serverLevel.sendParticles(new DustParticleOptions(
@@ -193,13 +193,13 @@ public final class ElementalReactionHelper {
             serverLevel.sendParticles(new DustParticleOptions(
                     new Vector3f(0.8F, 0.9F, 1.0F), 3.5F), x, y, z, 10, 1.0D, 1.0D, 1.0D, 0.15D);
 
-            target.playSound(ModSounds.SUPERCONDUCT.get(), 0.12F, 1.3F);
+            target.playSound(ModSounds.SUPERCONDUCT.get(), 0.2F, 0.8F);
         } else if (reactionMarker == ModMobEffects.OVERLOAD.get()) {
             // 超载（火+电）：爆炸（改小）+ 火焰（加量）
             serverLevel.sendParticles(ParticleTypes.EXPLOSION, x, y, z, 4, 0.3D, 0.3D, 0.3D, 0.1D);
             serverLevel.sendParticles(ParticleTypes.FLAME, x, y, z, 14, 0.5D, 0.5D, 0.5D, 0.2D);
 
-            target.playSound(SoundEvents.GENERIC_EXPLODE, 0.35F, 0.95F);
+            target.playSound(SoundEvents.GENERIC_EXPLODE, 0.3F, 0.9F);
         }
     }
 }
