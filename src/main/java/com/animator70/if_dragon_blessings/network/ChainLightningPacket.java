@@ -1,13 +1,13 @@
 package com.animator70.if_dragon_blessings.network;
 
 // 我的类
-import com.animator70.if_dragon_blessings.client.particle.LightningChainParticle;
+import com.animator70.if_dragon_blessings.client.render.ClientLightningRenderer;
 
 // Minecraft 类
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
 // Java 类
@@ -48,24 +48,21 @@ public class ChainLightningPacket {
     /**
      * 处理包：在客户端播放闪电链粒子效果
      */
+    @SuppressWarnings("deprecation")
     public void handle(Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
 
+        // enqueueWork 形参：Runnable（void 的方法）
+        // DistExecutor.runWhenOn（就是一个 void 的方法）
+        // runWhenOn 形参 1：Dist
+        // runWhenOn 形参 2：是一个 Supplier<Runnable>，也就是说一个函数，此函数的返回一个函数，返回值为 Runnable
+        // 最终：
         context.enqueueWork(() -> {
-            Minecraft mc = Minecraft.getInstance();
-            ClientLevel level = mc.level;
-
-            // 至少两个点：中心点 + 目标点
-            if (level == null || this.positions.size() < 2) {
-                return;
-            }
-
-            // 第一个坐标是闪电链的中心，从中心向其余每个点放射状发散
-            Vec3 centerPos = this.positions.get(0);
-
-            for (int i = 1; i < this.positions.size(); i++) {
-                mc.particleEngine.add(new LightningChainParticle(level, centerPos, this.positions.get(i)));
-            }
+            DistExecutor.runWhenOn(Dist.CLIENT, () -> {
+                return () -> {
+                    ClientLightningRenderer.spawn(this.positions);
+                };
+            });
         });
 
         context.setPacketHandled(true);

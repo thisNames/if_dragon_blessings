@@ -20,6 +20,8 @@ import net.minecraft.client.particle.ParticleRenderType;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 // Java 类 
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ import java.util.Random;
  * 渲染为“外层光晕 + 内层亮芯”双层，加色混合叠加，随时间淡出。
  * 颜色从 {@link DragonBlessingsConfig} 读取，每个闪电使用独立随机种子保证形状不同。
  */
+@OnlyIn(Dist.CLIENT)
 public class LightningChainParticle extends Particle {
 
     /**
